@@ -1,5 +1,13 @@
 # انتشار استاتیک روی GitHub Pages — بدون هیچ سرور یا بک‌اند
 # فایل‌ها مستقیم از همین مخزن (HTML/CSS/JS) منتشر می‌شوند.
+#
+# نکات:
+# - `actions: read` لازم است تا deploy-pages بتواند artifact همین run را ببیند.
+# - تاخیر کوتاه پیش از Deploy، به ایندکس‌شدن artifact پس از آپلود فرصت می‌دهد
+#   (دیده‌شدن فوری توسط سرویس artifact قابل اتکا نیست).
+# - عمداً `environment: github-pages` اعلام نشده: سیاست شاخه این environment
+#   فقط main را مجاز می‌کند و توکن فعلی اجازه تغییر آن را ندارد؛ استقرار از
+#   طریق API صفحات (deploy-pages) بدون اعلام environment انجام می‌شود.
 name: Deploy to GitHub Pages
 
 on:
@@ -31,56 +39,6 @@ jobs:
           path: .
       - name: Wait for artifact index
         run: sleep 20
-      - name: Debug — twirp ListArtifacts
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          python3 - <<'PY' || true
-          import os, json, base64, urllib.request, urllib.error
-          out = []
-          def note(msg):
-              out.append(str(msg).replace('\n', ' | ')[:2500])
-          tok = os.environ.get('ACTIONS_RUNTIME_TOKEN', '')
-          url_env = os.environ.get('ACTIONS_RESULTS_URL', '')
-          note(f'token_present={bool(tok)} results_url={url_env or "MISSING"}')
-          claims = {}
-          if tok:
-              try:
-                  part = tok.split('.')[1]
-                  part += '=' * (-len(part) % 4)
-                  claims = json.loads(base64.urlsafe_b64decode(part))
-                  note('claim_keys=' + ','.join(sorted(claims.keys())))
-              except Exception as e:
-                  note(f'jwt_decode_error={e}')
-          if tok and url_env:
-              body = json.dumps({
-                  'workflowRunBackendId': claims.get('workflow_run_backend_id', ''),
-                  'workflowJobRunBackendId': claims.get('workflow_job_run_backend_id', ''),
-              }).encode()
-              twirp = url_env.rstrip('/') + '/twirp/github.actions.results.api.v1.ArtifactService/ListArtifacts'
-              req = urllib.request.Request(twirp, data=body, headers={'Authorization': 'Bearer ' + tok, 'Content-Type': 'application/json'})
-              try:
-                  resp = urllib.request.urlopen(req, timeout=20)
-                  note(f'twirp_status={resp.status} body={resp.read().decode()[:1800]}')
-              except urllib.error.HTTPError as e:
-                  note(f'twirp_http={e.code} body={e.read().decode()[:800]}')
-              except Exception as e:
-                  note(f'twirp_error={e}')
-          # مقایسه: لیست REST artifact همین run
-          try:
-              run_id = os.environ.get('GITHUB_RUN_ID', '')
-              rq = urllib.request.Request(
-                  f'https://api.github.com/repos/{os.environ.get("GITHUB_REPOSITORY","")}/actions/runs/{run_id}/artifacts',
-                  headers={'Authorization': 'Bearer ' + os.environ.get('GH_TOKEN', ''), 'Accept': 'application/vnd.github+json',
-                           'User-Agent': 'debug'})
-              r2 = urllib.request.urlopen(rq, timeout=20)
-              data = json.loads(r2.read().decode())
-              note('rest_artifacts=' + json.dumps([{ 'name': a['name'], 'id': a['id'], 'size': a['size_in_bytes']} for a in data.get('artifacts', [])]))
-          except Exception as e:
-              note(f'rest_error={e}')
-          msg = ' ;; '.join(out)
-          print(f'::notice title=twirp-debug::{msg}')
-          PY
       - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4
