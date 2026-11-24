@@ -1,0 +1,106 @@
+/* ============================================================
+   صبحانه‌سرای آفتاب — سیستم طراحی (تم روشن و تاریک)
+   ============================================================ */
+
+@font-face {
+  font-family: 'Vazirmatn';
+  src: url('../fonts/Vazirmatn[wght].woff2') format('woff2-variations'),
+       url('../fonts/Vazirmatn[wght].woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  /* هویت برند */
+  --green-900: #0b2f24;
+  --green-800: #0f3d2e;
+  --green-700: #14503d;
+  --green-600: #1a654d;
+  --green-100: #e3efe9;
+  --gold-600: #b8860b;
+  --gold-500: #d4a017;
+  --gold-400: #e6b53a;
+  --gold-100: #f7ecd2;
+  --cream-100: #f7f3ea;
+  --cream-200: #efe8d8;
+
+  /* رنگ‌های عملکردی */
+  --danger: #b3261e;
+  --danger-soft: #f9e3e1;
+  --success: #1e7a3c;
+  --success-soft: #e2f3e7;
+  --warning: #a36a00;
+  --warning-soft: #fbefd7;
+  --info: #0b5c8a;
+  --info-soft: #e0eff8;
+
+  /* گرادیان‌ها */
+  --grad-gold: linear-gradient(135deg, #e6b53a 0%, #d4a017 55%, #b8860b 100%);
+  --grad-green: linear-gradient(135deg, #14503d 0%, #0f3d2e 100%);
+
+  --radius-sm: 8px;
+  --radius: 12px;
+  --radius-lg: 18px;
+  --shadow-sm: 0 1px 2px rgba(11, 47, 36, 0.06);
+  --shadow: 0 4px 16px rgba(11, 47, 36, 0.09);
+  --shadow-lg: 0 12px 32px rgba(11, 47, 36, 0.16);
+
+  --sidebar-w: 264px;
+  --topbar-h: 64px;
+
+  --font: 'Vazirmatn', 'Vazirmatn Farsi', Tahoma, 'Iranian Sans', sans-serif;
+}
+
+/* ---------- تم روشن (پیش‌فرض) ---------- */
+:root,
+[data-theme='light'] {
+  --bg: var(--cream-100);
+  --bg-soft: #f1ece0;
+  --surface: #ffffff;
+  --surface-2: #fbf9f4;
+  --text: #1c2b25;
+  --text-soft: #55665e;
+  --muted: #7d8c85;
+  --border: #e6dfd0;
+  --border-strong: #d5cbb6;
+  --sidebar-bg: var(--green-800);
+  --sidebar-text: #dfeae4;
+  --sidebar-muted: #9db8ac;
+  --sidebar-active: rgba(212, 160, 23, 0.18);
+  --sidebar-hover: rgba(255, 255, 255, 0.07);
+  --gold-text: var(--gold-600);
+  --overlay: rgba(11, 31, 25, 0.45);
+  --chart-grid: rgba(28, 43, 37, 0.08);
+  --chart-text: #55665e;
+  color-scheme: light;
+}
+
+/* ---------- تم تاریک ---------- */
+[data-theme='dark'] {
+  --bg: #0c1f19;
+  --bg-soft: #0a1913;
+  --surface: #14291f;
+  --surface-2: #183026;
+  --text: #ecf3ef;
+  --text-soft: #b4c6bd;
+  --muted: #8fa59b;
+  --border: #234137;
+  --border-strong: #2e5245;
+  --sidebar-bg: #0a1712;
+  --sidebar-text: #d8e6df;
+  --sidebar-muted: #8aa396;
+  --sidebar-active: rgba(212, 160, 23, 0.22);
+  --sidebar-hover: rgba(255, 255, 255, 0.06);
+  --gold-text: var(--gold-400);
+  --overlay: rgba(0, 0, 0, 0.6);
+  --chart-grid: rgba(236, 243, 239, 0.08);
+  --chart-text: #b4c6bd;
+  --danger-soft: #3a1c19;
+  --success-soft: #14341f;
+  --warning-soft: #3a2f14;
+  --info-soft: #123043;
+  --green-100: #17362a;
+  --gold-100: #3a3016;
+  color-scheme: dark;
+}

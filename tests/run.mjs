@@ -1,0 +1,554 @@
+/* ============================================================
+   تست‌های جامع صبحانه‌سرای آفتاب
+   اجرا: npm test
+   ============================================================ */
+
+import 'fake-indexeddb/auto';
+import { JSDOM } from 'jsdom';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import assert from 'node:assert/strict';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const root = path.resolve(__dirname, '..');
+
+/* ---------- راه‌اندازی محیط مرورگر ---------- */
+const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8')
+  .replace(/<script[\s\S]*?<\/script>/g, '');
+
+const dom = new JSDOM(html, { url: 'http://localhost/', pretendToBeVisual: true });
+
+const define = (k, v) => {
+  try { Object.defineProperty(globalThis, k, { value: v, configurable: true, writable: true }); }
+  catch { globalThis[k] = v; }
+};
+define('window', dom.window);
+define('document', dom.window.document);
+define('localStorage', dom.window.localStorage);
+define('navigator', dom.window.navigator);
+define('HTMLElement', dom.window.HTMLElement);
+define('Node', dom.window.Node);
+define('getComputedStyle', dom.window.getComputedStyle.bind(dom.window));
+globalThis.__AFTAB_TEST__ = true;
+
+/* ---------- واحدها ---------- */
+let passed = 0;
+let failed = 0;
+const failures = [];
+
+async function test(name, fn) {
+  try {
+    await fn();
+    passed += 1;
+    console.log(`  ✓ ${name}`);
+  } catch (e) {
+    failed += 1;
+    failures.push({ name, e });
+    console.log(`  ✗ ${name}`);
+    console.log(`    ${e.message.split('\n')[0]}`);
+  }
+}
+
+function section(t) { console.log(`\n■ ${t}`); }
+
+/* ============================================================ */
+section('تقویم شمسی و ابزارها');
+
+const U = await import('../js/core/utils.js');
+
+await test('میلادی → شمسی (نوروز ۱۴۰۵)', () => {
+  const r = U.toJalaali(2026, 3, 21);
+  assert.deepEqual([r.jy, r.jm, r.jd], [1405, 1, 1]);
+});
+await test('نوروز ۱۴۰۴ = ۲۰۲۵/۰۳/۲۱', () => {
+  const r = U.toJalaali(2025, 3, 21);
+  assert.deepEqual([r.jy, r.jm, r.jd], [1404, 1, 1]);
+});
+await test('نوروز ۱۴۰۳ = ۲۰۲۴/۰۳/۲۰', () => {
+  const r = U.toJalaali(2024, 3, 20);
+  assert.deepEqual([r.jy, r.jm, r.jd], [1403, 1, 1]);
+});
+await test('نوروز ۱۴۰۲ = ۲۰۲۳/۰۳/۲۱', () => {
+  const r = U.toJalaali(2023, 3, 21);
+  assert.deepEqual([r.jy, r.jm, r.jd], [1402, 1, 1]);
+});
+await test('تاریخ امروز ۲۰۲۶/۱۱/۲۴ → ۱۴۰۵/۰۹/۰۳', () => {
+  const r = U.toJalaali(2026, 11, 24);
+  assert.deepEqual([r.jy, r.jm, r.jd], [1405, 9, 3]);
+});
+await test('تبدیل وارونه شمسی → میلادی', () => {
+  const g = U.toGregorian(1405, 9, 3);
+  assert.deepEqual([g.gy, g.gm, g.gd], [2026, 11, 24]);
+});
+await test('سال کبیسه ۱۴۰۳ (اسفند ۳۰ روزه)', () => {
+  assert.equal(U.daysInMonth(1403, 12), 30);
+  assert.equal(U.daysInMonth(1404, 12), 29);
+});
+await test('پیمایش روزها', () => {
+  assert.equal(U.addDaysJalali('1405-08-01', 30), '1405-09-01');
+  assert.equal(U.addDaysJalali('1405-01-31', 1), '1405-02-01');
+  assert.equal(U.addDaysJalali('1404-12-29', 1), '1405-01-01');
+});
+await test('بازه ماه جاری', () => {
+  const m = U.currentJalaliMonth();
+  assert.match(m.from, /^\d{4}-\d{2}-01$/);
+  assert.ok(m.to >= m.from);
+});
+await test('ارقام و قالب مبلغ', () => {
+  assert.equal(U.toFa(1234), '۱۲۳۴');
+  assert.equal(U.toEn('۵۶۷'), '567');
+  assert.equal(U.fmtMoney(1250000), '۱٬۲۵۰٬۰۰۰');
+  assert.equal(U.normalize('  كيك '), 'کیک');
+  assert.equal(U.normalize('۱۴۰۵'), '1405');
+});
+
+/* ============================================================ */
+section('محاسبات مالی — میانگین موزون و سود');
+
+const M = await import('../js/core/money.js');
+
+await test('ورود کالا و به‌روزرسانی میانگین موزون', () => {
+  // ۱۰ کیلو به قیمت کیلویی ۱۰٬۰۰۰ → میانگین ۱۰
+  let s = M.wacIn({ stock: 0, wac: 0 }, 10000, 100000);
+  assert.equal(s.stock, 10000);
+  assert.equal(s.wac, 10);
+  // ۵ کیلو به قیمت کیلویی ۲۰٬۰۰۰ → (۱۰۰٬۰۰۰+۱۰۰٬۰۰۰)/۱۵٬۰۰۰
+  s = M.wacIn(s, 5000, 100000);
+  assert.equal(s.stock, 15000);
+  assert.ok(Math.abs(s.wac - 13.3333) < 0.001, `wac=${s.wac}`);
+});
+await test('خروج از انبار با ارزش میانگین', () => {
+  const r = M.wacOut({ stock: 15000, wac: 13.3333 }, 3000);
+  assert.equal(r.stock, 12000);
+  assert.ok(Math.abs(r.value - 40000) < 1);
+});
+await test('بازگردانی خرید', () => {
+  const r = M.wacReverse({ stock: 15000, wac: 13.3333 }, 5000, 100000);
+  assert.equal(r.stock, 10000);
+  assert.ok(Math.abs(r.wac - 10) < 0.01, `wac=${r.wac}`);
+});
+await test('بهای رسپی گردشده', () => {
+  assert.equal(M.recipeCost([{ qty: 100, wac: 5.5 }, { qty: 50, wac: 40.2 }]), 2560);
+});
+await test('اعتبارسنجی پرداخت ترکیبی', () => {
+  assert.equal(M.validatePayments(1000, { cash: 400, card: 350, credit: 250 }).ok, true);
+  assert.equal(M.validatePayments(1000, { cash: 400, card: 350 }).ok, false);
+  assert.equal(M.validatePayments(1000, { cash: -10, card: 1010 }).ok, false);
+});
+await test('سود ناخالص و خالص', () => {
+  const p = M.computeProfit({ revenue: 1000000, cogs: 350000, waste: 20000, expenses: 300000 });
+  assert.equal(p.gross, 650000);
+  assert.equal(p.net, 330000);
+  assert.ok(Math.abs(p.grossMargin - 65) < 0.01);
+});
+
+/* ============================================================ */
+section('منو — دسته‌بندی نامحدود بدون داده ثابت');
+
+const menu = await import('../js/services/menuService.js');
+
+await test('افزودن و اعتبارسنجی دسته', async () => {
+  const c = await menu.addCategory({ name: 'صبحانه' });
+  assert.ok(c.id);
+  await assert.rejects(() => menu.addCategory({ name: 'صبحانه' }), /وجود دارد/);
+  await assert.rejects(() => menu.addCategory({ name: '  ' }), /الزامی/);
+});
+await test('افزودن غذا و جلوگیری از نام تکراری', async () => {
+  const cats = await menu.listCategories();
+  const f = await menu.addFood({ categoryId: cats[0].id, name: 'املت گوجه', price: 89000 });
+  assert.equal(f.price, 89000);
+  await assert.rejects(() => menu.addFood({ categoryId: cats[0].id, name: 'املت گوجه', price: 1000 }), /وجود دارد/);
+});
+await test('حذف دسته دارای غذا مسدود است', async () => {
+  const cats = await menu.listCategories();
+  await assert.rejects(() => menu.deleteCategory(cats[0].id), /غذا دارد/);
+});
+await test('منوی پیشنهادی به‌صورت داده اضافه می‌شود', async () => {
+  const before = await menu.listCategories();
+  const r = await menu.seedSuggestedMenu();
+  assert.ok(r.addedCats > 0 && r.addedFoods > 0, JSON.stringify(r));
+  const after = await menu.listCategories();
+  assert.ok(after.length > before.length);
+  // فقط موارد غیرتکراری اضافه شده‌اند
+  const r2 = await menu.seedSuggestedMenu();
+  assert.equal(r2.addedCats, 0);
+  assert.equal(r2.addedFoods, 0);
+});
+await test('ویرایش و حذف غذا', async () => {
+  const foods = await menu.listFoods();
+  const target = foods.find((f) => f.name === 'املت گوجه');
+  const updated = await menu.updateFood(target.id, { price: 95000 });
+  assert.equal(updated.price, 95000);
+  await menu.deleteFood(target.id);
+  const after = await menu.listFoods();
+  assert.ok(!after.some((f) => f.id === target.id));
+});
+
+/* ============================================================ */
+section('مواد اولیه و انبار');
+
+const inv = await import('../js/services/inventoryService.js');
+
+let ingEgg, ingCheese;
+
+await test('تعریف ماده اولیه با واحد تبدیل', async () => {
+  ingEgg = await inv.addIngredient({
+    name: 'تخم‌مرغ', baseUnit: 'عدد', minStock: 60,
+    units: [{ name: 'بسته ۱۲ عددی', factor: 12 }],
+  });
+  ingCheese = await inv.addIngredient({ name: 'پنیر', baseUnit: 'گرم', minStock: 2000 });
+  assert.equal(ingEgg.stock, 0);
+  assert.equal(ingEgg.wac, 0);
+  const units = inv.unitsFor(ingEgg);
+  assert.ok(units.some((u) => u.name === 'بسته ۱۲ عددی' && u.factor === 12));
+});
+await test('تبدیل واحد به واحد پایه', () => {
+  assert.equal(inv.toBaseQty(ingEgg, 3, 'بسته ۱۲ عددی'), 36);
+  assert.equal(inv.toBaseQty(ingCheese, 2.5, 'کیلوگرم'), 2500);
+});
+await test('ورود دستی با بهای خرید و محاسبه میانگین', async () => {
+  await inv.manualIn({ ingredientId: ingEgg.id, qty: 100, unit: 'عدد', unitCost: 800000, note: 'خرید بازار' });
+  const [egg] = await inv.listIngredients().then((l) => l.filter((i) => i.id === ingEgg.id));
+  assert.equal(egg.stock, 100);
+  assert.equal(egg.wac, 8000); // ۸۰۰٬۰۰۰ / ۱۰۰
+});
+await test('خروج دستی و ثبت گردش', async () => {
+  await inv.manualOut({ ingredientId: ingEgg.id, qty: 10, note: 'مصرف آشپزخانه' });
+  const movs = await inv.listMovements({ ingredientId: ingEgg.id });
+  assert.ok(movs.length >= 2);
+  const [egg] = await inv.listIngredients().then((l) => l.filter((i) => i.id === ingEgg.id));
+  assert.equal(egg.stock, 90);
+});
+await test('ضایعات با ارزش‌گذاری', async () => {
+  await inv.recordWaste({ ingredientId: ingEgg.id, qty: 5, reason: 'شکسته' });
+  const waste = await inv.listMovements({ type: 'waste' });
+  assert.ok(waste.length === 1);
+  assert.equal(waste[0].value, 40000); // ۵ × ۸۰۰۰
+});
+await test('شمارش واقعی و اعمال اختلاف', async () => {
+  await inv.applyCount({ items: [{ ingredientId: ingEgg.id, countQty: 84 }] });
+  const [egg] = await inv.listIngredients().then((l) => l.filter((i) => i.id === ingEgg.id));
+  assert.equal(egg.stock, 84);
+});
+await test('هشدار حداقل موجودی', async () => {
+  const low = await inv.lowStockList();
+  // پنیر موجودی ندارد و حداقل ۲۰۰۰ ثبت شده
+  assert.ok(low.some((i) => i.id === ingCheese.id));
+});
+await test('حذف ماده دارای گردش مسدود است', async () => {
+  await assert.rejects(() => inv.deleteIngredient(ingEgg.id), /گردش انبار/);
+});
+
+/* ============================================================ */
+section('خرید و تأمین‌کنندگان');
+
+const pur = await import('../js/services/purchaseService.js');
+
+let supplier;
+
+await test('تأمین‌کننده و ثبت خرید با ورود به انبار', async () => {
+  supplier = await pur.addSupplier({ name: 'عمده‌فروشی مرکزی', phone: '09120000000' });
+  const p = await pur.createPurchase({
+    supplierId: supplier.id,
+    items: [
+      { ingredientId: ingCheese.id, qty: 5, unit: 'کیلوگرم', unitPrice: 180000 }, // ۹۰۰٬۰۰۰ تومان
+      { ingredientId: ingEgg.id, qty: 36, unit: 'عدد', unitPrice: 9000 }, // ۳۲۴٬۰۰۰
+    ],
+    paid: 500000,
+  });
+  assert.equal(p.total, 1224000);
+  assert.equal(p.paid, 500000);
+  assert.equal(p.remaining, 724000);
+
+  const cheese = (await inv.listIngredients()).find((i) => i.id === ingCheese.id);
+  assert.equal(cheese.stock, 5000); // ۵ کیلو → گرم
+  assert.ok(Math.abs(cheese.wac - 180) < 0.01, `wac=${cheese.wac}`); // ۹۰۰٬۰۰۰ / ۵٬۰۰۰
+});
+await test('بدهی تأمین‌کننده محاسبه می‌شود', async () => {
+  const sups = await pur.listSuppliers();
+  const s = sups.find((x) => x.id === supplier.id);
+  assert.equal(s.debt, 724000);
+});
+await test('پرداخت بدهی و کاهش آن', async () => {
+  await pur.paySupplier({ supplierId: supplier.id, amount: 224000 });
+  const s = (await pur.listSuppliers()).find((x) => x.id === supplier.id);
+  assert.equal(s.debt, 500000);
+});
+await test('پرداخت بیش از بدهی رد می‌شود', async () => {
+  await assert.rejects(() => pur.paySupplier({ supplierId: supplier.id, amount: 99999999 }), /بیشتر است/);
+});
+await test('حذف سند خرید انبار را بازمی‌گرداند', async () => {
+  const purchases = await pur.listPurchases();
+  const p = purchases[0];
+  await pur.deletePurchase(p.id);
+  const cheese = (await inv.listIngredients()).find((i) => i.id === ingCheese.id);
+  assert.equal(cheese.stock, 0);
+  assert.equal(cheese.wac, 0);
+});
+
+/* ============================================================ */
+section('رسپی و فروش — کسر خودکار انبار');
+
+const rec = await import('../js/services/recipeService.js');
+const sales = await import('../js/services/salesService.js');
+
+let foodOmelette;
+
+await test('ذخیره رسپی و محاسبه بهای تمام‌شده', async () => {
+  // دوباره پنیر می‌خریم تا موجودی داشته باشیم
+  await pur.createPurchase({
+    supplierId: supplier.id,
+    items: [{ ingredientId: ingCheese.id, qty: 2, unit: 'کیلوگرم', unitPrice: 200000 }],
+    paid: 400000,
+  });
+  const cats = await menu.listCategories();
+  const cat = cats.find((c) => c.name === 'املت') || cats[0];
+  foodOmelette = await menu.addFood({ categoryId: cat.id, name: 'املت ویژه تست', price: 120000 });
+  await rec.saveRecipe(foodOmelette.id, [
+    { ingredientId: ingEgg.id, qty: 3, unit: 'عدد' },
+    { ingredientId: ingCheese.id, qty: 100, unit: 'گرم' },
+  ]);
+  const c = await rec.foodCost(foodOmelette.id);
+  assert.equal(c.hasRecipe, true);
+  // تخم‌مرغ: ۳ × ۸۰۰۰ = ۲۴٬۰۰۰ — پنیر: ۱۰۰ × ۲۰۰ = ۲۰٬۰۰۰ → ۴۴٬۰۰۰
+  assert.equal(c.cost, 44000, `cost=${c.cost}`);
+});
+
+await test('ثبت فروش نقدی + کسر خودکار مواد', async () => {
+  const eggBefore = (await inv.listIngredients()).find((i) => i.id === ingEgg.id).stock;
+  const cheeseBefore = (await inv.listIngredients()).find((i) => i.id === ingCheese.id).stock;
+
+  const { sale, warnings } = await sales.createSale({
+    items: [{ foodId: foodOmelette.id, qty: 2 }],
+    payments: { cash: 240000 },
+  });
+  assert.equal(sale.total, 240000);
+  assert.equal(sale.cogs, 88000); // ۴۴٬۰۰۰ × ۲
+  assert.equal(warnings.length, 0, warnings.join(' | '));
+
+  const eggAfter = (await inv.listIngredients()).find((i) => i.id === ingEgg.id).stock;
+  const cheeseAfter = (await inv.listIngredients()).find((i) => i.id === ingCheese.id).stock;
+  assert.equal(eggBefore - eggAfter, 6);
+  assert.equal(cheeseBefore - cheeseAfter, 200);
+});
+
+await test('فروش ترکیبی (نقدی/کارت/نسیه) و صندوق', async () => {
+  const cash = await import('../js/services/cashService.js');
+  const before = await cash.cashBalance();
+  const { sale } = await sales.createSale({
+    items: [{ foodId: foodOmelette.id, qty: 1 }],
+    payments: { cash: 40000, card: 40000, credit: 40000 },
+    customer: { name: 'آقای رضایی' },
+  });
+  assert.equal(sale.payments.credit, 40000);
+  const after = await cash.cashBalance();
+  assert.equal(after - before, 40000); // فقط نقدی وارد صندوق می‌شود
+});
+
+await test('فروش با تخفیف و اعتبارسنجی پرداخت', async () => {
+  const { sale } = await sales.createSale({
+    items: [{ foodId: foodOmelette.id, qty: 1 }],
+    discount: 20000,
+    payments: { cash: 100000 },
+  });
+  assert.equal(sale.total, 100000);
+  assert.equal(sale.subtotal, 120000);
+  await assert.rejects(() => sales.createSale({
+    items: [{ foodId: foodOmelette.id, qty: 1 }],
+    payments: { cash: 1000 },
+  }), /برابر نیست/);
+});
+
+await test('حذف فروش، انبار و صندوق را بازمی‌گرداند', async () => {
+  const cash = await import('../js/services/cashService.js');
+  const list = await sales.listSales({});
+  const target = list[0]; // آخرین فروش (نقدی ۱۰۰٬۰۰۰)
+  const balanceBefore = await cash.cashBalance();
+  const eggBefore = (await inv.listIngredients()).find((i) => i.id === ingEgg.id).stock;
+
+  await sales.deleteSale(target.id);
+
+  const eggAfter = (await inv.listIngredients()).find((i) => i.id === ingEgg.id).stock;
+  assert.equal(eggAfter - eggBefore, 3);
+  const balanceAfter = await cash.cashBalance();
+  assert.equal(balanceBefore - balanceAfter, target.payments.cash);
+  assert.ok(!(await sales.listSales({})).some((s) => s.id === target.id));
+});
+
+/* ============================================================ */
+section('هزینه‌ها — جلوگیری از دوباره‌شماری');
+
+const exp = await import('../js/services/expenseService.js');
+
+await test('ثبت هزینه و اتصال به صندوق', async () => {
+  const e = await exp.addExpense({ category: 'اجاره', amount: 5000000, description: 'اجاره ماه', source: 'cash' });
+  assert.ok(e.uniqueKey);
+  const list = await exp.listExpenses({});
+  assert.equal(list.length, 1);
+});
+await test('قالب دوره‌ای و عدم ایجاد تکراری', async () => {
+  await exp.addTemplate({ category: 'قبوض', amount: 800000, day: 5, source: 'cash' });
+  const month = '1405-08';
+  const r1 = await exp.generateRecurring(month);
+  assert.equal(r1.created.length, 1);
+  const r2 = await exp.generateRecurring(month);
+  assert.equal(r2.created.length, 0);
+  assert.equal(r2.skipped, 1);
+  const all = await exp.listExpenses({});
+  const tplExp = all.filter((e) => e.month === month);
+  assert.equal(tplExp.length, 1, 'هر قالب حداکثر یک سند در هر ماه');
+});
+await test('پرداخت حقوق یکتا برای هر ماه', async () => {
+  const stf = await import('../js/services/personnelService.js');
+  const worker = await stf.addStaff({ name: 'مریم احمدی', role: 'گارسون', salary: 12000000 });
+  await stf.paySalary({ staffId: worker.id, date: '1405-08-01' });
+  await assert.rejects(() => stf.paySalary({ staffId: worker.id, date: '1405-08-15' }), /قبلاً پرداخت/);
+  const pays = await stf.staffPayments(worker.id);
+  assert.equal(pays.length, 1);
+});
+await test('ویرایش و حذف هزینه', async () => {
+  const list = await exp.listExpenses({});
+  const rent = list.find((e) => e.category === 'اجاره');
+  await exp.updateExpense(rent.id, { amount: 5500000 });
+  const after = (await exp.listExpenses({})).find((e) => e.id === rent.id);
+  assert.equal(after.amount, 5500000);
+  await exp.deleteExpense(rent.id);
+  assert.ok(!(await exp.listExpenses({})).some((e) => e.id === rent.id));
+});
+
+/* ============================================================ */
+section('گزارش‌ها — داشبورد، سود و زیان، روزانه');
+
+const rep = await import('../js/services/reportService.js');
+
+await test('داده داشبورد', async () => {
+  const d = await rep.dashboardData();
+  assert.ok(d.revenueToday >= 0);
+  assert.equal(d.series.length, 14);
+  assert.ok(d.counts.categories > 0);
+  assert.ok(Array.isArray(d.topFoods));
+});
+await test('گزارش سود و زیان بازه', async () => {
+  const m = U.currentJalaliMonth();
+  const pnl = await rep.profitLoss(m.from, m.to);
+  assert.ok(pnl.revenue > 0);
+  assert.equal(pnl.profit.gross, pnl.revenue - pnl.cogs);
+  assert.equal(pnl.trend.length, 6);
+  assert.ok(pnl.expensesByCategory.length >= 0);
+});
+await test('گزارش روزانه', async () => {
+  const d = await rep.dailyReport(U.todayJalali());
+  assert.ok(d.topFoods.length > 0);
+  assert.ok(d.profit);
+  assert.ok(Array.isArray(d.purchases));
+});
+await test('ارزش ضایعات در بازه', async () => {
+  const w = await rep.wasteValueBetween('0000-01-01', '9999-12-29');
+  assert.ok(w > 0);
+});
+
+/* ============================================================ */
+section('پشتیبان‌گیری و بازیابی');
+
+const bk = await import('../js/services/backupService.js');
+const db = await import('../js/core/db.js');
+
+await test('ساخت و بازیابی کامل پشتیبان', async () => {
+  const backup = await bk.buildBackup();
+  assert.equal(backup.app, 'aftab-breakfast');
+  assert.ok(backup.data.sales.length > 0);
+  assert.ok(backup.data.ingredients.length > 0);
+
+  const salesCount = backup.data.sales.length;
+  const catCount = backup.data.categories.length;
+
+  await bk.wipeAllData();
+  assert.equal(await db.count('sales'), 0);
+  assert.equal(await db.count('categories'), 0);
+
+  await bk.restoreBackup(backup, 'replace');
+  assert.equal(await db.count('sales'), salesCount);
+  assert.equal(await db.count('categories'), catCount);
+});
+await test('اعتبارسنجی فایل خراب', async () => {
+  await assert.rejects(() => bk.restoreBackup(null, 'replace'), /معتبر نیست/);
+  await assert.rejects(() => bk.restoreBackup({ foo: 1 }, 'replace'), /این برنامه نیست/);
+  await assert.rejects(() => bk.restoreBackup({ app: 'other' }, 'replace'), /این برنامه نیست/);
+});
+await test('ادغام پشتیبان', async () => {
+  const backup = await bk.buildBackup();
+  const before = await db.count('foods');
+  await bk.restoreBackup(backup, 'merge');
+  assert.equal(await db.count('foods'), before);
+});
+
+/* ============================================================ */
+section('تاریخچه تغییرات');
+
+await test('ایجاد/ویرایش/حذف در تاریخچه ثبت می‌شود', async () => {
+  const history = await db.getHistory(500);
+  assert.ok(history.length > 5, `history=${history.length}`);
+  const cats = await menu.listCategories();
+  const c = cats[0];
+  await menu.updateCategory(c.id, { name: c.name + ' ' });
+  const h2 = await db.getHistory(500);
+  assert.ok(h2.some((h) => h.entity === 'categories' && h.action === 'update' && h.entityId === c.id));
+  await menu.updateCategory(c.id, { name: c.name.replace(/ $/, '') });
+});
+
+/* ============================================================ */
+section('راه‌اندازی برنامه و صفحات (jsdom)');
+
+const app = await import('../js/app.js');
+
+await test('initApp بدون خطا اجرا می‌شود و سایدبار را می‌سازد', async () => {
+  await app.initApp();
+  const items = document.querySelectorAll('.nav-item');
+  assert.equal(items.length, 14, `nav items = ${items.length}`);
+  assert.equal(document.getElementById('page-title').textContent, 'داشبورد');
+  assert.ok(document.getElementById('page').innerHTML.length > 200);
+});
+
+await test('ناوبری به هر ۱۴ صفحه بدون خطا', async () => {
+  for (const route of app.ROUTES.flatMap((g) => g.modules)) {
+    await app.navigate(route.path);
+    const page = document.getElementById('page');
+    assert.ok(!page.innerHTML.includes('خطا در نمایش صفحه'), `${route.path}: ${page.textContent.slice(0, 120)}`);
+    assert.ok(page.innerHTML.length > 100, `${route.path} خالی است`);
+    assert.equal(document.getElementById('page-title').textContent, route.title);
+  }
+});
+
+await test('تغییر تم تاریک/روشن', async () => {
+  document.getElementById('theme-toggle').click();
+  assert.equal(document.documentElement.getAttribute('data-theme'), 'dark');
+  document.getElementById('theme-toggle').click();
+  assert.equal(document.documentElement.getAttribute('data-theme'), 'light');
+});
+
+await test('باز شدن و بسته شدن مودال', async () => {
+  const { openModal, closeAllModals, confirmDialog } = await import('../js/ui/components.js');
+  const m = openModal({ title: 'تست', content: '<p>محتوا</p>' });
+  assert.ok(document.querySelector('.modal-backdrop'));
+  m.close();
+  assert.ok(!document.querySelector('.modal-backdrop'));
+
+  const p = confirmDialog('آیا مطمئنید؟');
+  document.querySelector('[data-yes]').click();
+  assert.equal(await p, true);
+  closeAllModals();
+});
+
+/* ============================================================ */
+console.log('\n════════════════════════════════');
+console.log(`نتیجه: ${passed} موفق | ${failed} ناموفق`);
+if (failed) {
+  console.log('\nجزئیات خطاها:');
+  for (const f of failures) {
+    console.log(`\n✗ ${f.name}`);
+    console.log(f.e.stack.split('\n').slice(0, 6).join('\n'));
+  }
+  process.exit(1);
+}
+console.log('✓ همه تست‌ها با موفقیت گذشتند');

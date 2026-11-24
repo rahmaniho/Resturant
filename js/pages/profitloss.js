@@ -1,0 +1,208 @@
+/* ============================================================
+   صفحه گزارش سود و زیان
+   ============================================================ */
+
+import { profitLoss } from '../services/reportService.js';
+import { icon, toast, fieldDate, emptyState, buildTable } from '../ui/components.js';
+import { fmtMoney, fmtPercent, toFa, escapeHtml, todayJalali, currentJalaliMonth, downloadBlob, toEn } from '../core/utils.js';
+
+export const path = 'profitloss';
+export const title = 'گزارش سود و زیان';
+export const iconKey = 'chart';
+
+let range = null;
+
+export async function render(root) {
+  const m = currentJalaliMonth();
+  range = range || { from: m.from, to: m.to };
+
+  root.innerHTML = `
+    <div class="page-enter">
+      <div class="section-head">
+        <h2>گزارش سود و زیان</h2>
+        <div class="spacer"></div>
+        <div class="flex" style="gap:8px;flex-wrap:wrap">
+          <input class="input" id="r-from" dir="ltr" style="width:130px;min-height:38px" value="${range.from}" placeholder="1405-01-01" />
+          <span class="text-muted">تا</span>
+          <input class="input" id="r-to" dir="ltr" style="width:130px;min-height:38px" value="${range.to}" placeholder="1405-12-29" />
+          <button class="btn btn-primary btn-sm" id="r-apply" type="button">نمایش</button>
+          <button class="btn btn-outline btn-sm" id="r-month" type="button">ماه جاری</button>
+          <button class="btn btn-outline btn-sm" id="r-excel" type="button">${icon('excel')} اکسل</button>
+          <button class="btn btn-outline btn-sm" id="r-pdf" type="button">${icon('pdf')} PDF</button>
+        </div>
+      </div>
+
+      <div id="report-area"><div class="empty-state"><p>در حال محاسبه…</p></div></div>
+    </div>`;
+
+  root.querySelector('#r-apply').addEventListener('click', () => {
+    const from = toEn(root.querySelector('#r-from').value).trim();
+    const to = toEn(root.querySelector('#r-to').value).trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) {
+      toast('تاریخ‌ها را با قالب 1405-08-03 وارد کنید', 'warn');
+      return;
+    }
+    range = { from, to };
+    load();
+  });
+  root.querySelector('#r-month').addEventListener('click', () => {
+    const mm = currentJalaliMonth();
+    range = { from: mm.from, to: mm.to };
+    root.querySelector('#r-from').value = range.from;
+    root.querySelector('#r-to').value = range.to;
+    load();
+  });
+  root.querySelector('#r-excel').addEventListener('click', exportExcel);
+  root.querySelector('#r-pdf').addEventListener('click', exportPdf);
+
+  await load();
+}
+
+let lastData = null;
+
+async function load() {
+  const area = document.getElementById('report-area');
+  const data = await profitLoss(range.from, range.to);
+  lastData = data;
+  const p = data.profit;
+
+  area.innerHTML = `
+    <div class="export-sheet" id="pnl-sheet">
+      <div class="section-head">
+        <h2>سود و زیان ${escapeHtml(data.from)} تا ${escapeHtml(data.to)}</h2>
+        <div class="spacer"></div>
+        <span class="badge">${toFa(data.salesCount)} سند فروش</span>
+      </div>
+
+      <div class="kpi-grid">
+        <div class="kpi gold"><div class="kpi-label">درآمد فروش</div><div class="kpi-value">${fmtMoney(data.revenue)}<span class="unit">تومان</span></div></div>
+        <div class="kpi"><div class="kpi-label">سود ناخالص</div><div class="kpi-value ${p.gross >= 0 ? 'text-success' : 'text-danger'}">${fmtMoney(p.gross)}<span class="unit">تومان</span></div><div class="kpi-sub">حاشیه: ${fmtPercent(p.grossMargin)}</div></div>
+        <div class="kpi ${p.net >= 0 ? 'good' : 'bad'}"><div class="kpi-label">سود خالص</div><div class="kpi-value">${fmtMoney(p.net)}<span class="unit">تومان</span></div><div class="kpi-sub">حاشیه: ${fmtPercent(p.netMargin)}</div></div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">محاسبه سود</div>
+          <div class="summary-rows">
+            <div class="s-row"><span class="label">جمع فروش (بدون تخفیف)</span><span class="mono-num">${fmtMoney(data.grossSales)}</span></div>
+            <div class="s-row"><span class="label">تخفیفات</span><span class="mono-num text-danger">−${fmtMoney(data.discount)}</span></div>
+            <div class="s-row sub"><span class="label">درآمد خالص فروش</span><span class="mono-num">${fmtMoney(data.revenue)}</span></div>
+            <div class="s-row"><span class="label">بهای تمام‌شده کالای فروخته‌شده</span><span class="mono-num text-danger">−${fmtMoney(data.cogs)}</span></div>
+            <div class="s-row pos"><span class="label"><b>سود ناخالص</b></span><span class="mono-num"><b>${fmtMoney(p.gross)}</b></span></div>
+            <div class="s-row"><span class="label">ضایعات انبار</span><span class="mono-num text-danger">−${fmtMoney(data.waste)}</span></div>
+            <div class="s-row"><span class="label">مجموع هزینه‌ها (${toFa(data.expensesByCategory.length)} دسته)</span><span class="mono-num text-danger">−${fmtMoney(data.expensesTotal)}</span></div>
+            <div class="s-row total"><span class="label">سود خالص</span><span class="mono-num">${fmtMoney(p.net)}</span></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">ترکیب پرداخت خریداران</div>
+          <div class="summary-rows">
+            <div class="s-row"><span class="label">نقدی</span><span class="mono-num">${fmtMoney(data.payments.cash)}</span></div>
+            <div class="s-row"><span class="label">کارت‌خوان</span><span class="mono-num">${fmtMoney(data.payments.card)}</span></div>
+            <div class="s-row"><span class="label">نسیه (دریافت‌نشده)</span><span class="mono-num">${fmtMoney(data.payments.credit)}</span></div>
+            <div class="s-row sub"><span class="label">جمع</span><span class="mono-num">${fmtMoney(data.revenue)}</span></div>
+          </div>
+          <div class="card-title mt-16">گردش نقدی بازه</div>
+          <div class="summary-rows">
+            <div class="s-row pos"><span class="label">ورودی صندوق</span><span class="mono-num">${fmtMoney(data.cashflow.in)}</span></div>
+            <div class="s-row neg"><span class="label">خروجی صندوق</span><span class="mono-num">${fmtMoney(data.cashflow.out)}</span></div>
+            <div class="s-row"><span class="label">خالص گردش</span><span class="mono-num"><b>${fmtMoney(data.cashflow.net)}</b></span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid-2 mt-16">
+        <div class="card">
+          <div class="card-title">هزینه‌ها به تفکیک</div>
+          ${data.expensesByCategory.length ? `
+            <table class="data" style="min-width:0">
+              <thead><tr><th>دسته</th><th class="num">مبلغ</th><th class="num">سهم</th></tr></thead>
+              <tbody>
+                ${data.expensesByCategory.map((c) => `
+                  <tr>
+                    <td>${escapeHtml(c.name)}</td>
+                    <td class="num">${fmtMoney(c.amount)}</td>
+                    <td class="num">${fmtPercent(data.expensesTotal ? (c.amount / data.expensesTotal) * 100 : 0, 0)}</td>
+                  </tr>`).join('')}
+              </tbody>
+            </table>` : '<div class="text-muted text-sm">هزینه‌ای در این بازه ثبت نشده</div>'}
+        </div>
+        <div class="card">
+          <div class="card-title">روند ۶ ماه اخیر (سود خالص)</div>
+          <div class="chart-box sm"><canvas id="ch-trend"></canvas></div>
+        </div>
+      </div>
+    </div>`;
+
+  drawTrend(data.trend);
+}
+
+function drawTrend(trend) {
+  const Chart = window.Chart;
+  if (!Chart || !document.getElementById('ch-trend')) return;
+  const cs = getComputedStyle(document.documentElement);
+  const gold = cs.getPropertyValue('--gold-500').trim() || '#d4a017';
+  const green = cs.getPropertyValue('--green-700').trim() || '#14503d';
+  const grid = cs.getPropertyValue('--chart-grid').trim() || '#eee';
+  const text = cs.getPropertyValue('--chart-text').trim() || '#666';
+  Chart.defaults.font.family = "'Vazirmatn', Tahoma, sans-serif";
+  Chart.defaults.color = text;
+
+  new Chart(document.getElementById('ch-trend'), {
+    type: 'line',
+    data: {
+      labels: trend.map((t) => t.label),
+      datasets: [
+        { label: 'درآمد', data: trend.map((t) => t.revenue), borderColor: green, backgroundColor: 'transparent', tension: 0.35, borderWidth: 2 },
+        { label: 'سود خالص', data: trend.map((t) => t.net), borderColor: gold, backgroundColor: 'transparent', tension: 0.35, borderWidth: 2 },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { rtl: true, position: 'bottom' }, tooltip: { rtl: true } },
+      scales: {
+        x: { grid: { display: false } },
+        y: { grid: { color: grid }, ticks: { callback: (v) => toFa(Number(v).toLocaleString('en-US')) } },
+      },
+    },
+  });
+}
+
+function exportExcel() {
+  if (!lastData) return;
+  import('../core/exporters.js').then(({ exportTableExcel }) => {
+    const d = lastData;
+    exportTableExcel(`profit-loss-${d.from}-${d.to}`, 'سود و زیان', [
+      { key: 'item', label: 'شرح' },
+      { key: 'value', label: 'مبلغ (تومان)' },
+    ], [
+      { item: 'جمع فروش', value: d.grossSales },
+      { item: 'تخفیفات', value: -d.discount },
+      { item: 'درآمد خالص فروش', value: d.revenue },
+      { item: 'بهای تمام‌شده', value: -d.cogs },
+      { item: 'سود ناخالص', value: d.profit.gross },
+      { item: 'ضایعات', value: -d.waste },
+      { item: 'مجموع هزینه‌ها', value: -d.expensesTotal },
+      { item: 'سود خالص', value: d.profit.net },
+      ...d.expensesByCategory.map((c) => ({ item: `هزینه: ${c.name}`, value: -c.amount })),
+      { item: 'نقدی دریافتی', value: d.payments.cash },
+      { item: 'کارت‌خوان', value: d.payments.card },
+      { item: 'نسیه', value: d.payments.credit },
+    ]);
+    toast('فایل اکسل ساخته شد');
+  });
+}
+
+async function exportPdf() {
+  const sheet = document.getElementById('pnl-sheet');
+  if (!sheet) return;
+  try {
+    const { exportElementPdf } = await import('../core/exporters.js');
+    toast('در حال ساخت PDF…', 'info', 2500);
+    await exportElementPdf(sheet, `profit-loss-${range.from}.pdf`, { title: 'گزارش سود و زیان' });
+    toast('PDF ساخته شد');
+  } catch (e) {
+    toast(e.message || 'خطا در ساخت PDF', 'error');
+  }
+}
