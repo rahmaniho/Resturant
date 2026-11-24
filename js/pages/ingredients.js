@@ -4,13 +4,14 @@
 
 import {
   listIngredients, addIngredient, updateIngredient, deleteIngredient,
-  unitsFor, BASE_UNITS, toBaseQty,
+  unitsFor, BASE_UNITS, toBaseQty, materialFlow,
 } from '../services/inventoryService.js';
+import { listPurchases } from '../services/purchaseService.js';
 import {
   icon, toast, confirmDialog, buildTable, emptyState, openModal,
   fieldText, fieldNum, fieldTextarea, fieldSelect, fieldDate,
 } from '../ui/components.js';
-import { fmtMoney, fmtQty, fmtPercent, toFa, escapeHtml, num } from '../core/utils.js';
+import { fmtMoney, fmtQty, fmtPercent, toFa, escapeHtml, num, fmtDate } from '../core/utils.js';
 import { stockValue } from '../core/money.js';
 
 export const path = 'ingredients';
@@ -99,11 +100,13 @@ function renderList() {
     excel: { filename: 'ingredients', sheetName: 'مواد اولیه' },
     rowActions: (r) => `
       <div class="row-actions">
+        <button class="btn btn-ghost btn-sm" data-flow="${r.id}" type="button" title="گردش و سابقه قیمت">${icon('refresh')}</button>
         <button class="btn btn-ghost btn-sm" data-edit="${r.id}" type="button">${icon('edit')}</button>
         <button class="btn btn-ghost btn-sm text-danger" data-del="${r.id}" type="button">${icon('trash')}</button>
       </div>`,
   });
 
+  table.querySelectorAll('[data-flow]').forEach((b) => b.addEventListener('click', () => flowModal(b.dataset.flow)));
   table.querySelectorAll('[data-edit]').forEach((b) => b.addEventListener('click', () => modal(ctx.items.find((i) => i.id === b.dataset.edit))));
   table.querySelectorAll('[data-del]').forEach((b) => b.addEventListener('click', async () => {
     const it = ctx.items.find((x) => x.id === b.dataset.del);
@@ -183,6 +186,89 @@ function modal(ing = null) {
       await render(document.getElementById('page'));
     } catch (e) { toast(e.message, 'error'); }
   });
+}
+
+/* ---------- گردش ماده و سابقه قیمت خرید ---------- */
+
+async function flowModal(ingId) {
+  const ing = ctx.items.find((i) => i.id === ingId);
+  if (!ing) return;
+  const [{ ingredient, rows }, purchases] = await Promise.all([
+    materialFlow(ingId),
+    listPurchases(),
+  ]);
+
+  // سابقه قیمت خرید این ماده
+  const priceHistory = [];
+  for (const p of purchases) {
+    for (const line of p.lines || []) {
+      if (line.ingredientId !== ingId) continue;
+      priceHistory.push({
+        date: p.date, supplier: p.supplierName,
+        qty: line.qty, unit: line.unit,
+        unitPrice: line.unitPrice, total: line.total,
+        wacBefore: line.wacBefore,
+      });
+    }
+  }
+  priceHistory.sort((a, b) => b.date.localeCompare(a.date));
+
+  const typeBadge = (t) => {
+    const map = { in: ['green', 'ورود'], out: ['blue', 'خروج'], waste: ['red', 'ضایعات'], adjust: ['gold', 'اصلاح'] };
+    const [cls, label] = map[t] || ['', t];
+    return `<span class="badge ${cls}">${label}</span>`;
+  };
+
+  const content = document.createElement('div');
+  content.innerHTML = `
+    <div class="kpi-grid" style="grid-template-columns:repeat(auto-fill,minmax(160px,1fr))">
+      <div class="kpi"><div class="kpi-label">موجودی فعلی</div><div class="kpi-value" style="font-size:18px">${fmtQty(ingredient.stock)} <span class="unit">${escapeHtml(ingredient.baseUnit)}</span></div></div>
+      <div class="kpi gold"><div class="kpi-label">بهای میانگین</div><div class="kpi-value" style="font-size:18px">${fmtMoney(ingredient.wac)}</div></div>
+      <div class="kpi"><div class="kpi-label">ارزش موجودی</div><div class="kpi-value" style="font-size:18px">${fmtMoney(num(ingredient.stock, 0) * num(ingredient.wac, 0))}</div></div>
+      <div class="kpi"><div class="kpi-label">تعداد گردش</div><div class="kpi-value" style="font-size:18px">${toFa(rows.length)}</div></div>
+    </div>
+
+    <div class="card-title mt-16">${icon('truck')} سابقه قیمت خرید (${toFa(priceHistory.length)} سند)</div>
+    ${priceHistory.length ? `
+      <div class="table-wrap">
+        <table class="data" style="min-width:0">
+          <thead><tr><th>تاریخ</th><th>تأمین‌کننده</th><th class="num">مقدار</th><th class="num">قیمت واحد</th><th class="num">جمع</th></tr></thead>
+          <tbody>
+            ${priceHistory.map((h) => `
+              <tr>
+                <td>${fmtDate(h.date)}</td>
+                <td>${escapeHtml(h.supplier)}</td>
+                <td class="num">${fmtQty(h.qty)} ${escapeHtml(h.unit)}</td>
+                <td class="num">${fmtMoney(h.unitPrice)}</td>
+                <td class="num">${fmtMoney(h.total)}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+      <div class="text-sm text-muted mt-8">میانگین بهای خرید اخیر: <b class="text-gold">${fmtMoney(priceHistory.slice(0, 5).reduce((s, h) => s + num(h.unitPrice, 0), 0) / Math.min(5, priceHistory.length))}</b> تومان (۵ خرید آخر)</div>
+    ` : '<div class="text-muted text-sm">هنوز خریدی برای این ماده ثبت نشده است</div>'}
+
+    <div class="card-title mt-16">${icon('refresh')} گردش انبار (${toFa(rows.length)} حرکت)</div>
+    ${rows.length ? `
+      <div class="table-wrap" style="max-height:300px;overflow:auto">
+        <table class="data" style="min-width:0">
+          <thead><tr><th>تاریخ</th><th>نوع</th><th class="num">مقدار</th><th class="num">ارزش</th><th>شرح</th><th class="num">موجودی بعد</th></tr></thead>
+          <tbody>
+            ${rows.slice().reverse().map((m) => `
+              <tr>
+                <td>${fmtDate(m.date)} <span class="text-muted text-sm">${toFa(m.time || '')}</span></td>
+                <td>${typeBadge(m.type)}</td>
+                <td class="num">${m.qty > 0 ? '+' : ''}${fmtQty(m.qty)}</td>
+                <td class="num">${fmtMoney(Math.abs(num(m.value, 0)))}</td>
+                <td class="truncate mw-200">${escapeHtml(m.note || '—')}</td>
+                <td class="num">${fmtQty(m.stockAfter)}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>` : '<div class="text-muted text-sm">گردشی ثبت نشده است</div>'}
+  `;
+
+  openModal({ title: `گردش «${ing.name}»`, content, size: 'xwide' });
 }
 
 /* کمکی‌های تاریخ محلی */

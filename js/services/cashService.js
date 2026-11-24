@@ -31,12 +31,22 @@ export async function cashBalanceTo(date) {
   return roundToman(bal);
 }
 
-/** ایجاد موجودی ابتدای صندوق (فقط یک بار) */
+/** ایجاد/همگام‌سازی موجودی ابتدای صندوق با تنظیمات */
 export async function ensureInitialCash() {
   const entries = await db.getAll('cashEntries');
-  const exists = entries.some((e) => e.refType === 'initial');
-  if (exists) return null;
+  const existing = entries.find((e) => e.refType === 'initial');
   const amount = roundToman(num(getSettings().initialCash, 0));
+
+  if (existing) {
+    // فقط مقادیر مثبت تنظیمات اعمال می‌شوند تا پاک‌شدن تصادفی LocalStorage سرمایه را از بین نبرد
+    if (amount > 0 && num(existing.amount, 0) !== amount) {
+      const updated = { ...existing, amount, ts: Date.now() };
+      await db.put('cashEntries', updated);
+      await db.logHistory({ entity: 'cashEntries', entityId: existing.id, action: 'update', before: existing, after: updated, note: 'اصلاح سرمایه اولیه صندوق' });
+      return updated;
+    }
+    return null;
+  }
   if (amount <= 0) return null;
   const entry = {
     id: uid('cash'), date: todayJalali(), time: nowTime(), ts: Date.now(),
@@ -45,6 +55,7 @@ export async function ensureInitialCash() {
     refType: 'initial', refId: 'initial',
   };
   await db.put('cashEntries', entry);
+  await db.logHistory({ entity: 'cashEntries', entityId: entry.id, action: 'create', after: entry, note: 'سرمایه اولیه صندوق' });
   return entry;
 }
 
@@ -84,7 +95,7 @@ export async function addCashEntry({ type, amount, category = 'دستی', descri
 export async function deleteCashEntry(id) {
   const before = await db.get('cashEntries', id);
   if (!before) throw new Error('سند یافت نشد');
-  if (before.refType === 'sale' || before.refType === 'purchase' || before.refType === 'expense' || before.refType === 'supplierPayment' || before.refType === 'staffPayment') {
+  if (['sale', 'saleCard', 'creditPayment', 'purchase', 'expense', 'supplierPayment', 'staffPayment', 'initial'].includes(before.refType)) {
     throw new Error('این سند به یک عملیات اصلی متصل است؛ از همان بخش قابل حذف/انصراف است');
   }
   await db.del('cashEntries', id);

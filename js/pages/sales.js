@@ -3,7 +3,7 @@
    ============================================================ */
 
 import { listCategories, listFoods } from '../services/menuService.js';
-import { createSale, listSales, deleteSale } from '../services/salesService.js';
+import { createSale, listSales, deleteSale, receiveCredit, outstandingCredits } from '../services/salesService.js';
 import { ICONS, icon, toast, confirmDialog, buildTable, emptyState, openModal } from '../ui/components.js';
 import { fmtMoney, fmtDate, fmtDateLong, toFa, num, normalize, todayJalali, escapeHtml, roundToman } from '../core/utils.js';
 
@@ -14,7 +14,7 @@ export const iconKey = 'cart';
 let state = null;
 
 export async function render(root) {
-  const [cats, foods] = await Promise.all([listCategories(), listFoods()]);
+  const [cats, foods, outstanding] = await Promise.all([listCategories(), listFoods(), outstandingCredits()]);
   state = {
     cats, foods,
     activeCat: 'all',
@@ -25,6 +25,7 @@ export async function render(root) {
     customer: { name: '', phone: '' },
     listDate: todayJalali(),
     sales: await listSales({ date: todayJalali() }),
+    outstanding,
   };
 
   root.innerHTML = `
@@ -51,6 +52,7 @@ export async function render(root) {
               <input class="input" id="list-date" dir="ltr" style="width:140px;min-height:36px;padding:5px 10px" value="${state.listDate}" placeholder="1405-08-03" title="تاریخ سوابق فروش" />
               <button class="btn btn-outline btn-sm" id="btn-excel" type="button">${icon('excel')} اکسل</button>
             </div>
+            <div id="credit-bar" class="mb-8"></div>
             <div id="sales-list"></div>
           </div>
         </div>
@@ -103,6 +105,107 @@ export async function render(root) {
     });
   });
 
+  renderCreditBar();
+  renderSalesList();
+}
+
+/** نوار طلب باقی‌مانده نسیه‌ها */
+function renderCreditBar() {
+  const el = document.getElementById('credit-bar');
+  if (!el) return;
+  const o = state.outstanding;
+  if (!o || !o.total) {
+    el.innerHTML = `<div class="alert success" style="padding:8px 13px;font-size:12.5px">${icon('check')}<div>طلب باقی‌مانده‌ای از مشتریان نیست</div></div>`;
+    return;
+  }
+  el.innerHTML = `
+    <div class="alert warn" style="padding:9px 13px;font-size:13px;align-items:center">
+      ${icon('cart')}
+      <div style="flex:1">طلب نسیه باقی‌مانده: <b>${fmtMoney(o.total)} تومان</b> از ${toFa(o.sales.length)} فروش</div>
+      <button class="btn btn-gold btn-sm" id="btn-show-credit" type="button">مشاهده و دریافت</button>
+    </div>`;
+  el.querySelector('#btn-show-credit')?.addEventListener('click', () => showCreditList());
+}
+
+/** فهرست فروش‌های دارای طلب باقی‌مانده */
+function showCreditList() {
+  const rows = state.outstanding.sales;
+  const content = document.createElement('div');
+  content.innerHTML = `
+    <div class="alert info mb-16">${icon('info')}<div>جمع طلب باقی‌مانده: <b>${fmtMoney(state.outstanding.total)} تومان</b> — دریافت‌ها مستقیماً وارد صندوق می‌شود.</div></div>
+    <div class="table-wrap">
+      <table class="data">
+        <thead><tr><th>تاریخ</th><th>مشتری</th><th>اقلام</th><th class="num">کل فروش</th><th class="num">طلب باقی</th><th></th></tr></thead>
+        <tbody>
+          ${rows.map((s) => `
+            <tr>
+              <td>${fmtDate(s.date)}</td>
+              <td>${escapeHtml(s.customer?.name || '—')}</td>
+              <td class="truncate mw-200">${escapeHtml(s.items.map((i) => i.foodName).join('، '))}</td>
+              <td class="num">${fmtMoney(s.total)}</td>
+              <td class="num"><b class="text-danger">${fmtMoney(s.creditRemaining)}</b></td>
+              <td class="actions"><button class="btn btn-gold btn-sm" data-receive="${s.id}" type="button">دریافت</button></td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+  const modal = openModal({ title: 'طلبات نسیه', content, size: 'wide' });
+  content.querySelectorAll('[data-receive]').forEach((b) => b.addEventListener('click', () => {
+    modal.close();
+    receiveModal(state.outstanding.sales.find((s) => s.id === b.dataset.receive));
+  }));
+}
+
+/** مودال دریافت طلب از مشتری */
+function receiveModal(sale) {
+  if (!sale) return;
+  const remaining = num(sale.creditRemaining, 0);
+  const content = document.createElement('div');
+  content.innerHTML = `
+    <div class="alert warn mb-16">${icon('alert')}<div>
+      فروش ${fmtDate(sale.date)}${sale.customer?.name ? ` — ${escapeHtml(sale.customer.name)}` : ''}<br/>
+      طلب باقی‌مانده: <b>${fmtMoney(remaining)} تومان</b>
+    </div></div>
+    <div class="form-grid">
+      <div class="field">
+        <label for="rc-amount">مبلغ دریافتی (تومان)</label>
+        <input class="input num" id="rc-amount" dir="ltr" inputmode="decimal" value="${remaining}" />
+      </div>
+      <div class="field">
+        <label for="rc-date">تاریخ دریافت</label>
+        <input class="input" id="rc-date" dir="ltr" value="${todayJalali()}" placeholder="1405-08-03" data-date />
+      </div>
+    </div>
+    <div class="mt-8"><input class="input" id="rc-note" placeholder="یادداشت (اختیاری)" /></div>`;
+
+  const modal = openModal({
+    title: 'دریافت طلب نسیه',
+    content,
+    footer: `<button class="btn btn-primary" data-save type="button">${icon('check')} ثبت دریافت</button><button class="btn btn-ghost" data-cancel type="button">انصراف</button>`,
+  });
+  modal.foot.querySelector('[data-cancel]').addEventListener('click', modal.close);
+  modal.foot.querySelector('[data-save]').addEventListener('click', async () => {
+    try {
+      const { sale: updated } = await receiveCredit({
+        saleId: sale.id,
+        amount: content.querySelector('#rc-amount').value,
+        date: content.querySelector('#rc-date').value,
+        note: content.querySelector('#rc-note').value,
+      });
+      modal.close();
+      toast(updated.creditRemaining > 0
+        ? `دریافت ثبت شد؛ باقی‌مانده: ${fmtMoney(updated.creditRemaining)} تومان`
+        : 'طلب کاملاً تسویه شد', 'success');
+      await refreshAfterChange();
+    } catch (e) { toast(e.message, 'error'); }
+  });
+}
+
+/** به‌روزرسانی فهرست فروش و طلب‌ها پس از تغییر */
+async function refreshAfterChange() {
+  state.sales = await listSales({ date: state.listDate });
+  state.outstanding = await outstandingCredits();
+  renderCreditBar();
   renderSalesList();
 }
 
@@ -289,9 +392,8 @@ async function submitSale() {
     state.discount = 0;
     state.payments = { cash: 0, card: 0, credit: 0 };
     state.customer = { name: '', phone: '' };
-    state.sales = await listSales({ date: state.listDate });
+    await refreshAfterChange();
     renderCart();
-    renderSalesList();
     toast(`فروش ${fmtMoney(sale.total)} تومان ثبت شد`, 'success');
     (warnings || []).forEach((w) => toast(w, 'warn', 5000));
   } catch (e) {
@@ -338,19 +440,24 @@ function renderSalesList() {
     excel: { filename: `sales-${state.listDate}`, sheetName: 'فروش' },
     rowActions: (r) => `
       <div class="row-actions">
+        ${num(r.creditRemaining, 0) > 0 ? `<button class="btn btn-gold btn-sm" data-receive="${r.id}" type="button">دریافت ${fmtMoney(r.creditRemaining)}</button>` : ''}
         <button class="btn btn-ghost btn-sm" data-view="${r.id}" type="button" title="جزئیات">${icon('eye')}</button>
         <button class="btn btn-ghost btn-sm text-danger" data-del="${r.id}" type="button" title="حذف">${icon('trash')}</button>
       </div>`,
     caption: fmtDate(state.listDate),
   });
 
+  table.querySelectorAll('[data-receive]').forEach((b) => b.addEventListener('click', () => {
+    const s = state.sales.find((x) => x.id === b.dataset.receive);
+    if (s) receiveModal(s);
+  }));
+
   table.querySelectorAll('[data-del]').forEach((b) => b.addEventListener('click', async () => {
     const ok = await confirmDialog('سند فروش حذف و مواد اولیه مصرف‌شده به انبار بازگردانده می‌شود. ادامه می‌دهید؟', { danger: true, confirmText: 'حذف فروش' });
     if (!ok) return;
     try {
       await deleteSale(b.dataset.del);
-      state.sales = await listSales({ date: state.listDate });
-      renderSalesList();
+      await refreshAfterChange();
       toast('فروش حذف و انبار بازگردانی شد');
     } catch (e) { toast(e.message, 'error'); }
   }));
@@ -394,6 +501,14 @@ function showSaleDetail(s) {
       <div class="s-row"><span class="label">نسیه</span><span class="mono-num">${fmtMoney(s.payments.credit)}</span></div>
       <div class="s-row"><span class="label">بهای تمام‌شده</span><span class="mono-num text-danger">−${fmtMoney(s.cogs)}</span></div>
       <div class="s-row total"><span class="label">سود ناخالص</span><span class="mono-num">${fmtMoney(s.total - s.cogs)}</span></div>
-    </div>`;
-  openModal({ title: `جزئیات فروش ${s.id.slice(-6)}`, content, size: 'wide' });
+      ${num(s.creditRemaining, 0) > 0 ? `
+        <div class="s-row neg"><span class="label">طلب باقی‌مانده از مشتری</span><span class="mono-num"><b>${fmtMoney(s.creditRemaining)}</b></span></div>` : ''}
+    </div>
+    ${num(s.creditRemaining, 0) > 0 ? `<button class="btn btn-gold mt-16" id="detail-receive" type="button">${icon('wallet')} دریافت طلب نسیه</button>` : ''}`;
+
+  const modal = openModal({ title: `جزئیات فروش ${s.id.slice(-6)}`, content, size: 'wide' });
+  modal.body.querySelector('#detail-receive')?.addEventListener('click', () => {
+    modal.close();
+    receiveModal(state.sales.find((x) => x.id === s.id) || s);
+  });
 }

@@ -159,6 +159,56 @@ export async function createSale(input) {
   return { sale, warnings };
 }
 
+/**
+ * دریافت طلب نسیه از مشتری
+ * مبلغ دریافتی وارد صندوق می‌شود و طلب باقی‌مانده فروش کاهش می‌یابد
+ */
+export async function receiveCredit({ saleId, amount, date = todayJalali(), note = '' }) {
+  const sale = await db.get('sales', saleId);
+  if (!sale) throw new Error('سند فروش یافت نشد');
+  const remaining = roundToman(num(sale.creditRemaining, 0));
+  if (remaining <= 0) throw new Error('طلبی برای این فروش باقی نمانده است');
+  const amt = roundToman(num(amount, 0));
+  if (amt <= 0) throw new Error('مبلغ دریافتی باید بزرگ‌تر از صفر باشد');
+  if (amt > remaining) throw new Error(`مبلغ دریافتی از طلب باقی‌مانده (${fmtMoneyLocal(remaining)}) بیشتر است`);
+
+  const entry = {
+    id: uid('cash'), date, time: nowTime(), ts: Date.now(),
+    type: 'in', amount: amt,
+    category: 'دریافت نسیه',
+    description: `دریافت از ${sale.customer?.name?.trim() || 'مشتری'}${note ? ` — ${note}` : ''}`,
+    refType: 'creditPayment', refId: sale.id,
+  };
+  const after = {
+    ...sale,
+    creditRemaining: remaining - amt,
+    received: roundToman(num(sale.received, 0)) + amt,
+    updatedAt: Date.now(),
+  };
+  await db.writeBatch([
+    { store: 'sales', value: after },
+    { store: 'cashEntries', value: entry },
+  ]);
+  await db.logHistory({
+    entity: 'sales', entityId: saleId, action: 'update',
+    before: sale, after, note: `دریافت طلب ${amt} تومان`,
+  });
+  return { sale: after, entry };
+}
+
+/** فروش‌های دارای طلب باقی‌مانده */
+export async function outstandingCredits() {
+  const rows = (await db.getAll('sales')).filter((s) => num(s.creditRemaining, 0) > 0);
+  return {
+    sales: rows.sort((a, b) => b.ts - a.ts),
+    total: roundToman(rows.reduce((s, x) => s + num(x.creditRemaining, 0), 0)),
+  };
+}
+
+function fmtMoneyLocal(n) {
+  return `${Number(n).toLocaleString('fa-IR')} تومان`;
+}
+
 /** لیست فروش‌ها با فیلتر */
 export async function listSales(filters = {}) {
   let rows = await db.getAll('sales');
@@ -211,10 +261,10 @@ export async function deleteSale(id) {
     });
   }
 
-  // حذف اسناد صندوق
+  // حذف اسناد صندوق (فروش نقدی/کارت و دریافت‌های طلب مرتبط)
   const cash = await db.getAll('cashEntries');
   for (const c of cash) {
-    if ((c.refType === 'sale' || c.refType === 'saleCard') && c.refId === id) {
+    if ((c.refType === 'sale' || c.refType === 'saleCard' || c.refType === 'creditPayment') && c.refId === id) {
       ops.push({ store: 'cashEntries', delete: c.id });
     }
   }

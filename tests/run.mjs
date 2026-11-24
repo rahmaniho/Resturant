@@ -239,6 +239,12 @@ await test('هشدار حداقل موجودی', async () => {
 await test('حذف ماده دارای گردش مسدود است', async () => {
   await assert.rejects(() => inv.deleteIngredient(ingEgg.id), /گردش انبار/);
 });
+await test('گردش تفصیلی یک ماده (materialFlow)', async () => {
+  const r = await inv.materialFlow(ingEgg.id);
+  assert.equal(r.ingredient.id, ingEgg.id);
+  assert.ok(r.rows.length >= 3, `rows=${r.rows.length}`);
+  assert.ok(r.rows.every((m) => m.ingredientId === ingEgg.id));
+});
 
 /* ============================================================ */
 section('خرید و تأمین‌کنندگان');
@@ -374,6 +380,70 @@ await test('حذف فروش، انبار و صندوق را بازمی‌گرد�
   const balanceAfter = await cash.cashBalance();
   assert.equal(balanceBefore - balanceAfter, target.payments.cash);
   assert.ok(!(await sales.listSales({})).some((s) => s.id === target.id));
+});
+
+await test('دریافت طلب نسیه از مشتری و کاهش طلب', async () => {
+  const cash = await import('../js/services/cashService.js');
+  const { sale } = await sales.createSale({
+    items: [{ foodId: foodOmelette.id, qty: 1 }],
+    payments: { credit: 120000 },
+    customer: { name: 'مشتری نسیه‌ای' },
+  });
+  assert.equal(sale.creditRemaining, 120000);
+
+  const bal0 = await cash.cashBalance();
+  const { sale: s2 } = await sales.receiveCredit({ saleId: sale.id, amount: 50000, note: 'بخش اول' });
+  assert.equal(s2.creditRemaining, 70000);
+  assert.equal(await cash.cashBalance(), bal0 + 50000);
+
+  await assert.rejects(() => sales.receiveCredit({ saleId: sale.id, amount: 80000 }), /بیشتر است/);
+  await assert.rejects(() => sales.receiveCredit({ saleId: sale.id, amount: 0 }), /بزرگ‌تر از صفر/);
+
+  const { sale: s3 } = await sales.receiveCredit({ saleId: sale.id, amount: 70000 });
+  assert.equal(s3.creditRemaining, 0);
+  await assert.rejects(() => sales.receiveCredit({ saleId: sale.id, amount: 1000 }), /باقی نمانده/);
+
+  const out = await sales.outstandingCredits();
+  assert.ok(!out.sales.some((s) => s.id === sale.id));
+});
+
+await test('حذف فروش نسیه، دریافت‌های طلب را هم از صندوق برمی‌دارد', async () => {
+  const cash = await import('../js/services/cashService.js');
+  const { sale } = await sales.createSale({
+    items: [{ foodId: foodOmelette.id, qty: 1 }],
+    payments: { credit: 120000 },
+    customer: { name: 'مشتری دوم' },
+  });
+  await sales.receiveCredit({ saleId: sale.id, amount: 40000 });
+  const balWith = await cash.cashBalance();
+  await sales.deleteSale(sale.id);
+  const balAfter = await cash.cashBalance();
+  assert.equal(balWith - balAfter, 40000);
+  assert.ok(!(await sales.outstandingCredits()).sales.some((s) => s.id === sale.id));
+});
+
+await test('سرمایه اولیه صندوق از تنظیمات ایجاد و اصلاح می‌شود', async () => {
+  const { saveSettings } = await import('../js/core/settings.js');
+  const cash = await import('../js/services/cashService.js');
+  const base = await cash.cashBalance();
+
+  saveSettings({ initialCash: 1000000 });
+  await cash.ensureInitialCash();
+  assert.equal(await cash.cashBalance(), base + 1000000);
+
+  saveSettings({ initialCash: 1500000 });
+  await cash.ensureInitialCash();
+  assert.equal(await cash.cashBalance(), base + 1500000);
+
+  // صفر کردن تنظیمات، سرمایه ثبت‌شده را حذف نمی‌کند (محافظ داده)
+  saveSettings({ initialCash: 0 });
+  await cash.ensureInitialCash();
+  assert.equal(await cash.cashBalance(), base + 1500000);
+
+  saveSettings({ initialCash: 1000000 });
+  await cash.ensureInitialCash();
+  assert.equal(await cash.cashBalance(), base + 1000000);
+  saveSettings({ initialCash: 0 });
 });
 
 /* ============================================================ */
@@ -518,6 +588,32 @@ await test('ناوبری به هر ۱۴ صفحه بدون خطا', async () => {
     assert.ok(page.innerHTML.length > 100, `${route.path} خالی است`);
     assert.equal(document.getElementById('page-title').textContent, route.title);
   }
+});
+
+await test('تعامل کامل صفحه فروش (POS): انتخاب غذا → سبد → پرداخت → ثبت', async () => {
+  await app.navigate('sales');
+  const page = document.getElementById('page');
+
+  const foodCard = page.querySelector(`[data-food="${foodOmelette.id}"]`) || page.querySelector('[data-food]');
+  assert.ok(foodCard, 'کارت غذا یافت نشد');
+  foodCard.click();
+  assert.ok(page.querySelector('.cart-line'), 'قلم به سبد افزوده نشد');
+
+  const payFull = page.querySelector('#pay-full');
+  assert.ok(payFull, 'دکمه «پرداخت کامل نقدی» یافت نشد');
+  payFull.click();
+  assert.ok(page.querySelector('#pay-cash').value !== '', 'مبلغ نقدی پر نشد');
+
+  const salesMod = await import('../js/services/salesService.js');
+  const beforeCount = (await salesMod.listSales({ date: U.todayJalali() })).length;
+
+  page.querySelector('#btn-submit-sale').click();
+  await new Promise((r) => setTimeout(r, 150));
+
+  const afterCount = (await salesMod.listSales({ date: U.todayJalali() })).length;
+  assert.equal(afterCount, beforeCount + 1, 'سند فروش ثبت نشد');
+  assert.equal(page.querySelector('.cart-line'), null, 'سبد خرید خالی نشد');
+  assert.ok(page.querySelector('#sales-list tbody tr'), 'ردیف فروش در سوابق نمایش داده نشد');
 });
 
 await test('تغییر تم تاریک/روشن', async () => {
