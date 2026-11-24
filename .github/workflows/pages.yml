@@ -28,6 +28,35 @@ jobs:
         uses: actions/upload-pages-artifact@v3
         with:
           path: .
+      - name: Debug — twirp ListArtifacts
+        run: |
+          python3 - <<'PY'
+          import os, json, base64, urllib.request
+          tok = os.environ['ACTIONS_RUNTIME_TOKEN']
+          def b64url(s):
+              s += '=' * (-len(s) % 4)
+              return base64.urlsafe_b64decode(s)
+          try:
+              claims = json.loads(b64url(tok.split('.')[1]))
+              print('claim keys:', sorted(claims.keys()))
+          except Exception as e:
+              print('token not a JWT or undecodable:', e)
+              claims = {}
+          body = json.dumps({
+              'workflowRunBackendId': claims.get('workflow_run_backend_id', ''),
+              'workflowJobRunBackendId': claims.get('workflow_job_run_backend_id', ''),
+          }).encode()
+          url = os.environ['ACTIONS_RESULTS_URL'].rstrip('/') + '/twirp/github.actions.results.api.v1.ArtifactService/ListArtifacts'
+          req = urllib.request.Request(url, data=body, headers={'Authorization': 'Bearer ' + tok, 'Content-Type': 'application/json'})
+          try:
+              resp = urllib.request.urlopen(req, timeout=20)
+              print('twirp status', resp.status)
+              print('twirp body:', resp.read().decode()[:2000])
+          except Exception as e:
+              print('twirp error:', e)
+              if hasattr(e, 'read'):
+                  print('twirp err body:', e.read().decode()[:800])
+          PY
       - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4
