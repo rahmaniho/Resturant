@@ -2,9 +2,9 @@
    صفحه گزارش سود و زیان
    ============================================================ */
 
-import { profitLoss } from '../services/reportService.js';
+import { profitLoss, compareWithPrevious } from '../services/reportService.js';
 import { icon, toast, fieldDate, emptyState, buildTable } from '../ui/components.js';
-import { fmtMoney, fmtPercent, toFa, escapeHtml, todayJalali, currentJalaliMonth, downloadBlob, toEn, addDaysJalali, daysInMonth } from '../core/utils.js';
+import { fmtMoney, fmtPercent, fmtDate, toFa, escapeHtml, todayJalali, currentJalaliMonth, downloadBlob, toEn, addDaysJalali, daysInMonth } from '../core/utils.js';
 
 export const path = 'profitloss';
 export const title = 'گزارش سود و زیان';
@@ -87,11 +87,14 @@ export async function render(root) {
 }
 
 let lastData = null;
+let lastCmp = null;
 
 async function load() {
   const area = document.getElementById('report-area');
   const data = await profitLoss(range.from, range.to);
+  const cmp = await compareWithPrevious(range.from, range.to);
   lastData = data;
+  lastCmp = cmp;
   const p = data.profit;
 
   area.innerHTML = `
@@ -107,6 +110,8 @@ async function load() {
         <div class="kpi"><div class="kpi-label">سود ناخالص</div><div class="kpi-value ${p.gross >= 0 ? 'text-success' : 'text-danger'}">${fmtMoney(p.gross)}<span class="unit">تومان</span></div><div class="kpi-sub">حاشیه: ${fmtPercent(p.grossMargin)}</div></div>
         <div class="kpi ${p.net >= 0 ? 'good' : 'bad'}"><div class="kpi-label">سود خالص</div><div class="kpi-value">${fmtMoney(p.net)}<span class="unit">تومان</span></div><div class="kpi-sub">حاشیه: ${fmtPercent(p.netMargin)}</div></div>
       </div>
+
+      ${renderComparison(cmp)}
 
       <div class="grid-2">
         <div class="card">
@@ -166,6 +171,63 @@ async function load() {
   drawTrend(data.trend);
 }
 
+/**
+ * کارت مقایسه با بازه قبلی هم‌طول
+ * good=true یعنی افزایش خوب است (درآمد/سود)؛ false یعنی کاهش خوب (هزینه/ضایعات)
+ */
+function renderComparison(cmp) {
+  const rows = [
+    { label: 'درآمد فروش', key: 'revenue', money: true, good: true },
+    { label: 'سود ناخالص', key: 'gross', money: true, good: true },
+    { label: 'سود خالص', key: 'net', money: true, good: true },
+    { label: 'تعداد فروش', key: 'salesCount', money: false, good: true },
+    { label: 'مجموع هزینه‌ها', key: 'expenses', money: true, good: false },
+    { label: 'ضایعات انبار', key: 'waste', money: true, good: false },
+  ];
+  const cell = (v, money) => (money ? `${fmtMoney(v)} <span style="color:#888;font-size:11px">تومان</span>` : toFa(v));
+  const deltaHtml = (cur, prev, good) => {
+    const diff = cur - prev;
+    if (prev === 0) {
+      if (cur === 0) return '<span class="text-muted">بدون تغییر</span>';
+      return `<span class="${good ? 'text-success' : 'text-danger'}">${good ? '↑' : '↓'} جدید</span>`;
+    }
+    const pct = (diff / Math.abs(prev)) * 100;
+    const up = diff > 0;
+    const neutral = diff === 0;
+    const cls = neutral ? 'text-muted' : ((up === good) ? 'text-success' : 'text-danger');
+    const arrow = neutral ? '→' : (up ? '↑' : '↓');
+    const sign = up ? '+' : '−';
+    return `<span class="${cls}"><b>${arrow} ${fmtPercent(Math.abs(pct), 0)}</b></span>
+      <span style="color:#999;font-size:11px" dir="ltr">(${sign}${fmtMoney(Math.abs(diff))})</span>`;
+  };
+  return `
+    <div class="card mt-16" id="compare-card">
+      <div class="card-title">مقایسه با بازه قبلی (${toFa(cmp.days)} روز)</div>
+      <div class="text-muted text-sm" style="margin-bottom:10px">
+        بازه فعلی ${fmtDate(cmp.from)} تا ${fmtDate(cmp.to)} &nbsp;در برابر&nbsp; بازه قبلی ${fmtDate(cmp.prevFrom)} تا ${fmtDate(cmp.prevTo)}
+      </div>
+      <table class="data" style="min-width:0">
+        <thead>
+          <tr>
+            <th>شاخص</th>
+            <th class="num">بازه فعلی</th>
+            <th class="num">بازه قبلی</th>
+            <th class="num">تغییر</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map((r) => `
+            <tr>
+              <td>${r.label}</td>
+              <td class="num">${cell(cmp.curr[r.key], r.money)}</td>
+              <td class="num">${cell(cmp.prev[r.key], r.money)}</td>
+              <td class="num">${deltaHtml(cmp.curr[r.key], cmp.prev[r.key], r.good)}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
 function drawTrend(trend) {
   const Chart = window.Chart;
   if (!Chart || !document.getElementById('ch-trend')) return;
@@ -217,6 +279,12 @@ function exportExcel() {
       { item: 'نقدی دریافتی', value: d.payments.cash },
       { item: 'کارت‌خوان', value: d.payments.card },
       { item: 'نسیه', value: d.payments.credit },
+      ...(lastCmp ? [
+        { item: `بازه قبلی (${lastCmp.prevFrom} تا ${lastCmp.prevTo}) — درآمد`, value: lastCmp.prev.revenue },
+        { item: 'بازه قبلی — سود ناخالص', value: lastCmp.prev.gross },
+        { item: 'بازه قبلی — سود خالص', value: lastCmp.prev.net },
+        { item: 'بازه قبلی — هزینه‌ها', value: -lastCmp.prev.expenses },
+      ] : []),
     ]);
     toast('فایل اکسل ساخته شد');
   });

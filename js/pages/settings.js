@@ -38,6 +38,14 @@ export async function render(root) {
               <input class="input" id="set-name" value="${escapeHtml(s.restaurantName)}" />
             </div>
             <div class="field">
+              <label for="set-phone">تلفن (روی فاکتور)</label>
+              <input class="input" id="set-phone" dir="ltr" value="${escapeHtml(s.restaurantPhone || '')}" placeholder="021-…" />
+            </div>
+            <div class="field">
+              <label for="set-address">نشانی (روی فاکتور)</label>
+              <input class="input" id="set-address" value="${escapeHtml(s.restaurantAddress || '')}" placeholder="استان، شهر، خیابان" />
+            </div>
+            <div class="field">
               <label for="set-theme">حالت نمایش</label>
               <select class="select" id="set-theme">
                 <option value="light" ${s.theme === 'light' ? 'selected' : ''}>روشن</option>
@@ -108,6 +116,8 @@ export async function render(root) {
     const theme = root.querySelector('#set-theme').value;
     saveSettings({
       restaurantName: root.querySelector('#set-name').value.trim() || 'صبحانه‌سرای آفتاب',
+      restaurantPhone: root.querySelector('#set-phone').value.trim(),
+      restaurantAddress: root.querySelector('#set-address').value.trim(),
       expiryAlertDays: Math.max(0, num(root.querySelector('#set-expiry').value, 7)),
       lowStockAlerts: root.querySelector('#set-lowstock').checked,
     });

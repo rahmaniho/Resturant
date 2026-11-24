@@ -517,6 +517,21 @@ await test('ارزش ضایعات در بازه', async () => {
   const w = await rep.wasteValueBetween('0000-01-01', '9999-12-29');
   assert.ok(w > 0);
 });
+await test('گزارش مقایسه‌ای — بازه فعلی در برابر بازه قبلی هم‌طول', async () => {
+  const today = U.todayJalali();
+  const from = U.addDaysJalali(today, -6);
+  const cmp = await rep.compareWithPrevious(from, today);
+  assert.equal(cmp.days, 7);
+  assert.equal(cmp.prevTo, U.addDaysJalali(from, -1), 'پایان بازه قبلی باید روز قبل از شروع بازه فعلی باشد');
+  assert.equal(cmp.prevFrom, U.addDaysJalali(cmp.prevTo, -6), 'بازه قبلی باید ۷ روز باشد');
+  assert.ok(cmp.curr.revenue > 0, 'فروش امروز در بازه فعلی نیست');
+  assert.ok(cmp.curr.gross === cmp.curr.revenue - cmp.curr.cogs, 'سود ناخالص نادرست');
+  assert.ok(cmp.prev.revenue >= 0 && cmp.prev.net >= 0);
+  // سازگاری با گزارش سود و زیان تک‌بازه
+  const pnl = await rep.profitLoss(from, today);
+  assert.equal(cmp.curr.revenue, pnl.revenue);
+  assert.equal(cmp.curr.net, pnl.profit.net);
+});
 
 /* ============================================================ */
 section('پشتیبان‌گیری و بازیابی');
@@ -735,6 +750,31 @@ await test('راهنمای درون‌برنامه‌ای باز می‌شود �
   await new Promise((r) => setTimeout(r, 200));
   assert.ok(!document.querySelector('.modal-backdrop'), 'مودال راهنما بسته نشد');
   assert.equal(document.getElementById('page-title').textContent, 'مدیریت انبار');
+});
+
+await test('فاکتور رسمی با لوگو، تلفن/نشانی و امضا ساخته می‌شود', async () => {
+  const { saveSettings } = await import('../js/core/settings.js');
+  saveSettings({ restaurantPhone: '021-77550000', restaurantAddress: 'تهران، خیابان آزادی، پلاک ۱۲' });
+
+  const salesPage = await import('../js/pages/sales.js');
+  const salesMod = await import('../js/services/salesService.js');
+  const list = await salesMod.listSales({});
+  assert.ok(list.length > 0, 'سند فروشی برای فاکتور وجود ندارد');
+
+  const el = salesPage.buildReceiptElement(list[0]);
+  try {
+    assert.ok(el.querySelector('img[src*="icon-192.png"]'), 'لوگوی مجموعه یافت نشد');
+    assert.ok(el.textContent.includes('فاکتور فروش رسمی'), 'عنوان رسمی فاکتور نیست');
+    assert.ok(el.textContent.includes('021-77550000'), 'تلفن از تنظیمات چاپ نشد');
+    assert.ok(el.textContent.includes('خیابان آزادی'), 'نشانی از تنظیمات چاپ نشد');
+    assert.ok(el.textContent.includes('امضای صندوقدار'), 'خط امضا نیست');
+    assert.ok(el.textContent.includes('شماره فاکتور'), 'جدول مشخصات نیست');
+    assert.ok(el.querySelectorAll('table').length >= 3, 'جدول اقلام/مشخصات/امضا کامل نیست');
+    assert.ok(el.querySelectorAll('tbody tr').length >= 3, 'ردیف‌های اقلام کم است');
+  } finally {
+    el.remove();
+    saveSettings({ restaurantPhone: '', restaurantAddress: '' });
+  }
 });
 
 /* ============================================================ */

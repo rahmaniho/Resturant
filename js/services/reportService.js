@@ -9,7 +9,7 @@ import { lowStockList, expiryList } from './inventoryService.js';
 import { listSuppliers } from './purchaseService.js';
 import {
   num, roundToman, todayJalali, addDaysJalali, lastMonths,
-  currentJalaliMonth,
+  currentJalaliMonth, jalaliToDate,
 } from '../core/utils.js';
 
 /* ---------- داشبورد ---------- */
@@ -167,6 +167,33 @@ async function monthSummary(from, to) {
     expenses: core.expensesTotal, waste: core.waste,
     profit: core.profit, salesCount: core.salesCount,
   };
+}
+
+/** تعداد روز یک بازه شمسی (شامل هر دو سر) */
+function dayCount(from, to) {
+  const ms = jalaliToDate(to) - jalaliToDate(from);
+  return Math.max(1, Math.round(ms / 86400000) + 1);
+}
+
+/**
+ * مقایسه بازه جاری با بازه قبلی هم‌طول (بلافاصله قبل از آن).
+ * مثال: ۷ روز اخیر در برابر ۷ روز پیش از آن.
+ */
+export async function compareWithPrevious(from, to) {
+  const days = dayCount(from, to);
+  const prevTo = addDaysJalali(from, -1);
+  const prevFrom = addDaysJalali(prevTo, -(days - 1));
+  const [a, b] = await Promise.all([rangeCore(from, to), rangeCore(prevFrom, prevTo)]);
+  const pick = (r) => ({
+    revenue: r.revenue,
+    cogs: r.cogs,
+    gross: r.profit.gross,
+    net: r.profit.net,
+    expenses: r.expensesTotal,
+    waste: r.waste,
+    salesCount: r.salesCount,
+  });
+  return { days, from, to, prevFrom, prevTo, curr: pick(a), prev: pick(b) };
 }
 
 /* ---------- گزارش روزانه ---------- */

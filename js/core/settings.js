@@ -6,6 +6,8 @@ const KEY = 'aftab.settings.v1';
 
 export const DEFAULT_SETTINGS = {
   restaurantName: 'صبحانه‌سرای آفتاب',
+  restaurantPhone: '', // تلفن چاپ‌شونده روی فاکتور
+  restaurantAddress: '', // نشانی چاپ‌شونده روی فاکتور
   theme: 'light', // light | dark
   initialCash: 0, // موجودی ابتدای صندوق (تومان)
   expenseCategories: ['اجاره', 'حقوق', 'قبوض', 'حمل‌ونقل', 'تعمیرات', 'لوازم آشپزخانه', 'بهداشتی', 'متفرقه'],
