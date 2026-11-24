@@ -554,6 +554,70 @@ await test('ادغام پشتیبان', async () => {
 });
 
 /* ============================================================ */
+section('سلامت داده‌ها — راستی‌آزمایی و اصلاح');
+
+const integrity = await import('../js/services/integrityService.js');
+
+await test('داده‌های سالم از بررسی سلامت عبور می‌کنند', async () => {
+  const r = await integrity.runIntegrityCheck();
+  assert.equal(r.ok, true, 'مورد غیرمنتظره: ' + JSON.stringify(r.issues, null, 2));
+  assert.ok(r.stats.movements > 0 && r.stats.sales > 0);
+});
+
+await test('ناهماهنگی موجودی انبار شناسایی و اصلاح می‌شود', async () => {
+  // خراب کردن عمدی موجودی یک ماده
+  const ing = (await inv.listIngredients()).find((i) => i.id === ingEgg.id);
+  const trueStock = ing.stock;
+  await db.put('ingredients', { ...ing, stock: trueStock + 17 });
+
+  const r1 = await integrity.runIntegrityCheck();
+  assert.equal(r1.ok, false);
+  const issue = r1.issues.find((i) => i.fix.type === 'stock' && i.fix.ingredientId === ingEgg.id);
+  assert.ok(issue, 'مورد ناهماهنگی پیدا نشد');
+  assert.equal(issue.fix.value, trueStock);
+
+  const fixed = await integrity.fixIssues(r1.issues);
+  assert.ok(fixed >= 1);
+
+  const r2 = await integrity.runIntegrityCheck();
+  assert.equal(r2.ok, true, JSON.stringify(r2.issues, null, 2));
+  const after = (await inv.listIngredients()).find((i) => i.id === ingEgg.id);
+  assert.equal(after.stock, trueStock);
+});
+
+await test('کلید تکراری هزینه (دوباره‌شماری) شناسایی می‌شود', async () => {
+  // شبیه‌سازی داده خراب: کپی یک هزینه با uniqueKey یکسان
+  const exps = await db.getAll('expenses');
+  const src = exps[0];
+  await db.put('expenses', { ...src, id: 'dup_test_1', ts: src.ts + 1 });
+  const r = await integrity.runIntegrityCheck();
+  assert.equal(r.ok, false);
+  assert.ok(r.issues.some((i) => i.category === 'expense' && /تکراری/.test(i.label)), JSON.stringify(r.issues));
+  // پاک‌سازی
+  await db.del('expenses', 'dup_test_1');
+  const r2 = await integrity.runIntegrityCheck();
+  assert.equal(r2.ok, true);
+});
+
+await test('طلب نسیه ناهماهنگ اصلاح می‌شود', async () => {
+  const allSales = await db.getAll('sales');
+  const target = allSales.find((s) => U.num(s.creditRemaining, 0) > 0) || allSales.find((s) => U.num(s.payments?.credit, 0) > 0);
+  assert.ok(target, 'فروش نسیه‌ای برای تست یافت نشد');
+  const before = target.creditRemaining;
+  await db.put('sales', { ...target, creditRemaining: 999999 });
+
+  const r = await integrity.runIntegrityCheck();
+  assert.equal(r.ok, false);
+  const issue = r.issues.find((i) => i.fix?.type === 'creditRemaining' && i.fix.saleId === target.id);
+  assert.ok(issue, 'مورد طلب پیدا نشد');
+  assert.equal(issue.fix.value, before);
+
+  await integrity.fixIssues(r.issues);
+  const r2 = await integrity.runIntegrityCheck();
+  assert.equal(r2.ok, true, JSON.stringify(r2.issues, null, 2));
+});
+
+/* ============================================================ */
 section('تاریخچه تغییرات');
 
 await test('ایجاد/ویرایش/حذف در تاریخچه ثبت می‌شود', async () => {

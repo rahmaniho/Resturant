@@ -4,7 +4,7 @@
 
 import { profitLoss } from '../services/reportService.js';
 import { icon, toast, fieldDate, emptyState, buildTable } from '../ui/components.js';
-import { fmtMoney, fmtPercent, toFa, escapeHtml, todayJalali, currentJalaliMonth, downloadBlob, toEn } from '../core/utils.js';
+import { fmtMoney, fmtPercent, toFa, escapeHtml, todayJalali, currentJalaliMonth, downloadBlob, toEn, addDaysJalali, daysInMonth } from '../core/utils.js';
 
 export const path = 'profitloss';
 export const title = 'گزارش سود و زیان';
@@ -32,6 +32,15 @@ export async function render(root) {
         </div>
       </div>
 
+      <div class="flex flex-wrap mb-16" style="gap:7px">
+        <span class="text-sm text-muted">بازه سریع:</span>
+        <button class="chip" data-preset="today" type="button">امروز</button>
+        <button class="chip" data-preset="7" type="button">۷ روز اخیر</button>
+        <button class="chip" data-preset="30" type="button">۳۰ روز اخیر</button>
+        <button class="chip" data-preset="month" type="button">ماه جاری</button>
+        <button class="chip" data-preset="year" type="button">سال جاری</button>
+      </div>
+
       <div id="report-area"><div class="empty-state"><p>در حال محاسبه…</p></div></div>
     </div>`;
 
@@ -52,6 +61,25 @@ export async function render(root) {
     root.querySelector('#r-to').value = range.to;
     load();
   });
+
+  // بازه‌های سریع
+  root.querySelectorAll('[data-preset]').forEach((b) => b.addEventListener('click', () => {
+    const kind = b.dataset.preset;
+    const today = todayJalali();
+    if (kind === 'today') range = { from: today, to: today };
+    else if (kind === '7') range = { from: addDaysJalali(today, -6), to: today };
+    else if (kind === '30') range = { from: addDaysJalali(today, -29), to: today };
+    else if (kind === 'month') { const m = currentJalaliMonth(); range = { from: m.from, to: m.to }; }
+    else if (kind === 'year') {
+      const m = currentJalaliMonth();
+      const last = daysInMonth(m.jy, 12);
+      range = { from: `${m.jy}-01-01`, to: `${m.jy}-12-${String(last).padStart(2, '0')}` };
+    }
+    root.querySelector('#r-from').value = range.from;
+    root.querySelector('#r-to').value = range.to;
+    root.querySelectorAll('[data-preset]').forEach((x) => x.classList.toggle('active', x === b));
+    load();
+  }));
   root.querySelector('#r-excel').addEventListener('click', exportExcel);
   root.querySelector('#r-pdf').addEventListener('click', exportPdf);
 

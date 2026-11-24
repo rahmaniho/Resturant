@@ -5,6 +5,7 @@
 import { listCategories, listFoods } from '../services/menuService.js';
 import { createSale, listSales, deleteSale, receiveCredit, outstandingCredits } from '../services/salesService.js';
 import { ICONS, icon, toast, confirmDialog, buildTable, emptyState, openModal } from '../ui/components.js';
+import { getSettings } from '../core/settings.js';
 import { fmtMoney, fmtDate, fmtDateLong, toFa, num, normalize, todayJalali, escapeHtml, roundToman } from '../core/utils.js';
 
 export const path = 'sales';
@@ -504,11 +505,79 @@ function showSaleDetail(s) {
       ${num(s.creditRemaining, 0) > 0 ? `
         <div class="s-row neg"><span class="label">طلب باقی‌مانده از مشتری</span><span class="mono-num"><b>${fmtMoney(s.creditRemaining)}</b></span></div>` : ''}
     </div>
-    ${num(s.creditRemaining, 0) > 0 ? `<button class="btn btn-gold mt-16" id="detail-receive" type="button">${icon('wallet')} دریافت طلب نسیه</button>` : ''}`;
+    <div class="flex mt-16 flex-wrap">
+      ${num(s.creditRemaining, 0) > 0 ? `<button class="btn btn-gold" id="detail-receive" type="button">${icon('wallet')} دریافت طلب نسیه</button>` : ''}
+      <button class="btn btn-outline" id="detail-pdf" type="button">${icon('pdf')} خروجی PDF فاکتور</button>
+    </div>`;
 
   const modal = openModal({ title: `جزئیات فروش ${s.id.slice(-6)}`, content, size: 'wide' });
   modal.body.querySelector('#detail-receive')?.addEventListener('click', () => {
     modal.close();
     receiveModal(state.sales.find((x) => x.id === s.id) || s);
   });
+  modal.body.querySelector('#detail-pdf')?.addEventListener('click', async () => {
+    try {
+      toast('در حال ساخت فاکتور…', 'info', 2500);
+      await exportReceipt(state.sales.find((x) => x.id === s.id) || s);
+      toast('فاکتور PDF ساخته شد');
+    } catch (e) { toast(e.message || 'خطا در ساخت فاکتور', 'error'); }
+  });
+}
+
+/** ساخت رسید/فاکتور مشتری به‌صورت PDF */
+async function exportReceipt(sale) {
+  const brand = getSettings().restaurantName || 'صبحانه‌سرای آفتاب';
+  const wrap = document.createElement('div');
+  wrap.className = 'export-sheet';
+  wrap.style.cssText = 'position:fixed;right:-10000px;top:0;width:380px;background:#fff;padding:26px 22px;font-family:Vazirmatn,Tahoma,sans-serif;color:#14231d';
+  wrap.innerHTML = `
+    <div style="text-align:center;border-bottom:2px dashed #0f3d2e;padding-bottom:12px;margin-bottom:12px">
+      <div style="font-size:19px;font-weight:800;color:#0f3d2e">${escapeHtml(brand)}</div>
+      <div style="font-size:12px;color:#666">فاکتور فروش</div>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:12px;color:#444;margin-bottom:10px">
+      <span>شماره: ${escapeHtml(sale.id.slice(-8))}</span>
+      <span>${fmtDate(sale.date)} — ${toFa(sale.time || '')}</span>
+    </div>
+    ${sale.customer?.name ? `<div style="font-size:12.5px;margin-bottom:8px">مشتری: ${escapeHtml(sale.customer.name)}</div>` : ''}
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead>
+        <tr style="background:#efe8d8">
+          <th style="text-align:right;padding:7px 6px">کالا</th>
+          <th style="text-align:center;padding:7px 6px">تعداد</th>
+          <th style="text-align:left;padding:7px 6px">مبلغ</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${sale.items.map((i) => `
+          <tr style="border-bottom:1px solid #eee">
+            <td style="padding:7px 6px">${escapeHtml(i.foodName)}</td>
+            <td style="text-align:center;padding:7px 6px">${toFa(i.qty)}</td>
+            <td style="text-align:left;padding:7px 6px">${fmtMoney(i.total)}</td>
+          </tr>`).join('')}
+      </tbody>
+    </table>
+    <div style="margin-top:10px;font-size:13px">
+      <div style="display:flex;justify-content:space-between;padding:3px 0"><span>جمع</span><span>${fmtMoney(sale.subtotal)} تومان</span></div>
+      ${num(sale.discount, 0) > 0 ? `<div style="display:flex;justify-content:space-between;padding:3px 0;color:#b3261e"><span>تخفیف</span><span>−${fmtMoney(sale.discount)} تومان</span></div>` : ''}
+      <div style="display:flex;justify-content:space-between;padding:7px 6px;background:#0f3d2e;color:#fff;border-radius:8px;margin-top:6px;font-weight:800;font-size:15px">
+        <span>مبلغ قابل پرداخت</span><span>${fmtMoney(sale.total)} تومان</span>
+      </div>
+    </div>
+    <div style="margin-top:10px;font-size:12.5px;color:#333;border-top:1px dashed #ccc;padding-top:8px">
+      ${num(sale.payments.cash, 0) > 0 ? `<div style="display:flex;justify-content:space-between;padding:2px 0"><span>نقدی</span><span>${fmtMoney(sale.payments.cash)}</span></div>` : ''}
+      ${num(sale.payments.card, 0) > 0 ? `<div style="display:flex;justify-content:space-between;padding:2px 0"><span>کارت‌خوان</span><span>${fmtMoney(sale.payments.card)}</span></div>` : ''}
+      ${num(sale.payments.credit, 0) > 0 ? `<div style="display:flex;justify-content:space-between;padding:2px 0"><span>نسیه</span><span>${fmtMoney(sale.payments.credit)}</span></div>` : ''}
+      ${num(sale.creditRemaining, 0) > 0 ? `<div style="display:flex;justify-content:space-between;padding:2px 0;color:#b3261e"><span>طلب باقی‌مانده</span><span><b>${fmtMoney(sale.creditRemaining)}</b></span></div>` : ''}
+    </div>
+    <div style="text-align:center;margin-top:16px;font-size:12px;color:#666;border-top:1px solid #eee;padding-top:10px">
+      از خرید شما سپاسگزاریم ✿<br/>${escapeHtml(brand)}
+    </div>`;
+  document.body.appendChild(wrap);
+  try {
+    const { exportElementPdf } = await import('../core/exporters.js');
+    await exportElementPdf(wrap, `factor-${sale.date}-${sale.id.slice(-6)}.pdf`);
+  } finally {
+    wrap.remove();
+  }
 }

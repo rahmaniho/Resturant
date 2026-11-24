@@ -28,6 +28,7 @@ const PRECACHE = [
   './js/services/personnelService.js',
   './js/services/reportService.js',
   './js/services/backupService.js',
+  './js/services/integrityService.js',
   './js/ui/components.js',
   './js/pages/dashboard.js',
   './js/pages/sales.js',

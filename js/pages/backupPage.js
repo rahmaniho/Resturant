@@ -69,6 +69,15 @@ export async function render(root) {
       </div>
 
       <div class="card mt-16">
+        <div class="card-title">${icon('check')} سلامت داده‌ها
+          <div class="spacer"></div>
+          <button class="btn btn-primary btn-sm" id="btn-integrity" type="button">${icon('refresh')} شروع بررسی</button>
+        </div>
+        <p class="text-sm text-muted mb-8">راستی‌آزمایی خودکار: تطابق موجودی انبار با گردش اسناد، جمع‌های فروش و پرداخت، طلب نسیه، یکتایی هزینه‌ها و صحت ارجاع‌ها — با امکان اصلاح خودکار موارد قابل ترمیم.</p>
+        <div id="integrity-result"></div>
+      </div>
+
+      <div class="card mt-16">
         <div class="card-title">${icon('box')} جزئیات داده‌ها</div>
         <div class="grid-4">${storeCards}</div>
       </div>
@@ -107,6 +116,27 @@ export async function render(root) {
       toast('فایل JSON معتبر نیست: ' + err.message, 'error', 5000);
     }
     e.target.value = '';
+  });
+
+  root.querySelector('#btn-integrity').addEventListener('click', async () => {
+    const btn = root.querySelector('#btn-integrity');
+    const out = root.querySelector('#integrity-result');
+    btn.disabled = true;
+    out.innerHTML = '<div class="text-muted text-sm">در حال بررسی…</div>';
+    try {
+      const { runIntegrityCheck, fixIssues } = await import('../services/integrityService.js');
+      const result = await runIntegrityCheck();
+      renderIntegrity(out, result, async () => {
+        const fixed = await fixIssues(result.issues);
+        toast(`${toFa(fixed)} مورد اصلاح شد`, 'success');
+        const again = await runIntegrityCheck();
+        renderIntegrity(out, again, null);
+      });
+    } catch (e) {
+      out.innerHTML = `<div class="alert danger">${icon('alert')}<div>${escapeHtml(e.message || String(e))}</div></div>`;
+    } finally {
+      btn.disabled = false;
+    }
   });
 
   root.querySelector('#btn-wipe').addEventListener('click', async () => {
@@ -165,6 +195,53 @@ function showRestoreModal(obj) {
       setTimeout(() => window.location.reload(), 900);
     } catch (e) { toast(e.message, 'error', 5000); }
   });
+}
+
+/** نمایش نتیجه بررسی سلامت */
+function renderIntegrity(out, result, onFix) {
+  const s = result.stats;
+  const summary = `
+    <div class="flex flex-wrap gap-8 text-sm text-muted mb-8">
+      <span class="badge">${toFa(s.ingredients)} ماده</span>
+      <span class="badge">${toFa(s.movements)} گردش</span>
+      <span class="badge">${toFa(s.sales)} فروش</span>
+      <span class="badge">${toFa(s.cashEntries)} سند صندوق</span>
+      <span class="badge">${toFa(s.expenses)} هزینه</span>
+      <span class="badge">${toFa(s.recipes)} رسپی</span>
+    </div>`;
+
+  if (result.ok) {
+    out.innerHTML = `
+      ${summary}
+      <div class="alert success">${icon('check')}<div><b>همه بررسی‌ها موفق بود.</b> داده‌ها از نظر انباشت انبار، مالی و ارجاع‌ها سالم هستند.</div></div>`;
+    return;
+  }
+
+  const fixableCount = result.issues.filter((i) => i.fixable).length;
+  out.innerHTML = `
+    ${summary}
+    <div class="alert warn mb-8">${icon('alert')}<div><b>${toFa(result.issues.length)} مورد</b> پیدا شد${fixableCount ? ` که ${toFa(fixableCount)} مورد آن قابل اصلاح خودکار است` : ''}.</div></div>
+    <div class="table-wrap">
+      <table class="data" style="min-width:0">
+        <thead><tr><th>شدت</th><th>بخش</th><th>شرح</th></tr></thead>
+        <tbody>
+          ${result.issues.map((i) => `
+            <tr>
+              <td>${i.severity === 'error' ? '<span class="badge red">بحرانی</span>' : '<span class="badge warn">هشدار</span>'}</td>
+              <td>${escapeHtml(categoryLabel(i.category))}</td>
+              <td>${escapeHtml(i.label)}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+    ${fixableCount && onFix ? `<button class="btn btn-gold mt-16" id="btn-fix-issues" type="button">${icon('refresh')} اصلاح ${toFa(fixableCount)} مورد قابل ترمیم</button>` : ''}
+  `;
+  out.querySelector('#btn-fix-issues')?.addEventListener('click', onFix);
+}
+
+function categoryLabel(c) {
+  const map = { stock: 'موجودی انبار', sale: 'فروش', cash: 'صندوق', expense: 'هزینه', ref: 'ارجاع‌ها', dup: 'تکراری' };
+  return map[c] || c;
 }
 
 function storeLabel(k) {

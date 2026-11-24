@@ -35,6 +35,7 @@ export const ROUTES = [
 const PAGE_MODULES = ROUTES.flatMap((g) => g.modules);
 let currentPath = null;
 let booted = false;
+let deferredInstallPrompt = null;
 
 /* ---------- سایدبار ---------- */
 
@@ -161,10 +162,63 @@ export async function initApp() {
   // Service Worker (آفلاین)
   registerSW();
 
+  // دکمه نصب PWA
+  setupInstallPrompt();
+
+  // یادآوری پشتیبان‌گیری (یک بار در هر نشست)
+  remindBackup();
+
   // مسیر اولیه
   const initial = pathFromHash();
   const mod = PAGE_MODULES.find((m) => m.path === initial) || dashboard;
   await renderPage(mod);
+}
+
+/** نصب PWA — نمایش دکمه فقط وقتی مرورگر اجازه نصب بدهد */
+function setupInstallPrompt() {
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    document.getElementById('btn-install')?.classList.remove('hidden');
+  });
+  window.addEventListener('appinstalled', () => {
+    deferredInstallPrompt = null;
+    document.getElementById('btn-install')?.classList.add('hidden');
+    toast('برنامه با موفقیت روی دستگاه نصب شد', 'success');
+  });
+  document.getElementById('btn-install')?.addEventListener('click', async () => {
+    if (deferredInstallPrompt) {
+      deferredInstallPrompt.prompt();
+      try {
+        const choice = await deferredInstallPrompt.userChoice;
+        if (choice?.outcome === 'accepted') toast('در حال نصب…', 'info');
+      } catch { /* noop */ }
+      deferredInstallPrompt = null;
+      document.getElementById('btn-install')?.classList.add('hidden');
+    } else {
+      toast('از منوی مرورگر گزینه «Add to Home Screen» یا «نصب برنامه» را بزنید', 'info', 5000);
+    }
+  });
+}
+
+/** یادآوری دوره‌ای پشتیبان‌گیری */
+async function remindBackup() {
+  try {
+    const { getSettings } = await import('./core/settings.js');
+    const { count } = await import('./core/db.js');
+    const s = getSettings();
+    const salesCount = await count('sales');
+    if (!salesCount) return; // داده‌ای نیست؛ یادآوری لازم نیست
+    const last = s.lastBackupAt ? new Date(s.lastBackupAt).getTime() : 0;
+    const stale = !last || Date.now() - last > 7 * 24 * 3600 * 1000;
+    if (stale) {
+      setTimeout(() => toast(
+        last ? 'هفته‌ای یک‌بار پشتیبان بگیرید؛ آخرین پشتیبان مربوط به بیش از ۷ روز پیش است'
+             : 'هنوز پشتیبانی نگرفته‌اید؛ از بخش «پشتیبان‌گیری» فایل JSON دانلود کنید',
+        'warn', 7000
+      ), 2500);
+    }
+  } catch { /* noop */ }
 }
 
 async function registerSW() {
