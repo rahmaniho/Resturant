@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
   pages: write
   id-token: write
 
@@ -28,6 +29,8 @@ jobs:
         uses: actions/upload-pages-artifact@v3
         with:
           path: .
+      - name: Wait for artifact index
+        run: sleep 20
       - name: Debug — twirp ListArtifacts
         env:
           GH_TOKEN: ${{ github.token }}
