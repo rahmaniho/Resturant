@@ -539,7 +539,43 @@ table.data .row-actions { display: inline-flex; gap: 5px; }
 .food-card img { height: 74px; object-fit: cover; border-radius: 9px; margin-bottom: 3px; }
 
 /* ---------- سبد فروش ---------- */
-.cart-panel { position: sticky; top: calc(var(--topbar-h) + 16px); }
+.cart-panel { position: sticky; top: calc(var(--topbar-h) + 16px); scroll-margin-top: calc(var(--topbar-h) + 16px); }
+
+/* نوار سبد شناور (موبایل/تبلت) */
+#cart-fab {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 0px));
+  display: none;
+  align-items: center;
+  gap: 12px;
+  z-index: 50;
+  box-shadow: 0 -8px 24px rgba(11, 47, 36, 0.16);
+}
+
+#cart-fab.visible { display: flex; }
+#cart-fab .fab-count {
+  background: var(--green-800);
+  color: #fff;
+  border-radius: 99px;
+  min-width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12.5px;
+  font-weight: 800;
+  padding: 0 8px;
+}
+#cart-fab .fab-total { flex: 1; font-weight: 800; font-size: 15px; color: var(--gold-text); }
+
+@media (max-width: 1100px) {
+  #page.has-cart-fab { padding-bottom: 86px; }
+}
 
 .cart-lines { max-height: 300px; overflow-y: auto; margin: 0 -6px; }
 
@@ -628,6 +664,16 @@ table.data .row-actions { display: inline-flex; gap: 5px; }
 @keyframes slideIn { from { opacity: 0; transform: translateX(-16px); } to { opacity: 1; transform: translateX(0); } }
 
 .page-enter { animation: fadeIn 0.22s ease; }
+
+/* جلوگیری از بزرگ‌نمایی خودکار ورودی‌ها در iOS هنگام فوکوس */
+@media (max-width: 560px) {
+  .input,
+  .select,
+  .textarea,
+  .qty-box span {
+    font-size: 16px;
+  }
+}
 
 /* ---------- چاپ/خروجی گزارش ---------- */
 .export-sheet {

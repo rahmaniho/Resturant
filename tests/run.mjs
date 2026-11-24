@@ -700,6 +700,43 @@ await test('باز شدن و بسته شدن مودال', async () => {
   closeAllModals();
 });
 
+await test('پیش‌نویس سبد خرید ذخیره و بازیابی می‌شود', async () => {
+  localStorage.setItem('aftab.cart.draft', JSON.stringify({
+    items: [{ foodId: foodOmelette.id, name: 'املت ویژه تست', price: 120000, qty: 2 }],
+    discount: 5000,
+    payments: { cash: 0, card: 0, credit: 0 },
+    customer: { name: 'مشتری آزمایشی', phone: '0912' },
+    savedAt: Date.now(),
+  }));
+
+  await app.navigate('sales');
+  const page = document.getElementById('page');
+  assert.ok(page.querySelector('.cart-line'), 'پیش‌نویس سبد بازیابی نشد');
+  assert.equal(page.querySelector('#cust-name')?.value, 'مشتری آزمایشی');
+  assert.ok(document.getElementById('cart-fab').classList.contains('visible'), 'نوار سبد شناور فعال نشد');
+  assert.equal(page.querySelector('#discount-input')?.value, '5000');
+
+  // خالی کردن سبد → حذف پیش‌نویس و مخفی شدن نوار
+  page.querySelector('#btn-clear-cart').click();
+  await new Promise((r) => setTimeout(r, 60));
+  const raw = localStorage.getItem('aftab.cart.draft');
+  assert.ok(!raw, 'پیش‌نویس پس از خالی کردن سبد حذف نشد');
+  assert.ok(!document.getElementById('cart-fab').classList.contains('visible'));
+});
+
+await test('راهنمای درون‌برنامه‌ای باز می‌شود و به بخش‌ها می‌رود', async () => {
+  document.getElementById('btn-guide').click();
+  const modal = document.querySelector('.modal-backdrop');
+  assert.ok(modal, 'مودال راهنما باز نشد');
+  assert.ok(modal.textContent.includes('مسیر پیشنهادی راه‌اندازی'));
+  assert.equal(modal.querySelectorAll('[data-goto]').length, 14);
+
+  modal.querySelector('[data-goto="warehouse"]').click();
+  await new Promise((r) => setTimeout(r, 200));
+  assert.ok(!document.querySelector('.modal-backdrop'), 'مودال راهنما بسته نشد');
+  assert.equal(document.getElementById('page-title').textContent, 'مدیریت انبار');
+});
+
 /* ============================================================ */
 console.log('\n════════════════════════════════');
 console.log(`نتیجه: ${passed} موفق | ${failed} ناموفق`);

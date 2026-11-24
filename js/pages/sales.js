@@ -14,20 +14,56 @@ export const iconKey = 'cart';
 
 let state = null;
 
+/* ---------- پیش‌نویس سبد (localStorage) ---------- */
+const DRAFT_KEY = 'aftab.cart.draft';
+
+function saveDraft() {
+  try {
+    if (!state || !state.cart.length) { localStorage.removeItem(DRAFT_KEY); return; }
+    localStorage.setItem(DRAFT_KEY, JSON.stringify({
+      items: state.cart,
+      discount: state.discount,
+      payments: state.payments,
+      customer: state.customer,
+      savedAt: Date.now(),
+    }));
+  } catch { /* noop */ }
+}
+
+function loadDraft() {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY);
+    if (!raw) return null;
+    const d = JSON.parse(raw);
+    if (!d || !Array.isArray(d.items) || !d.items.length) return null;
+    return d;
+  } catch { return null; }
+}
+
 export async function render(root) {
   const [cats, foods, outstanding] = await Promise.all([listCategories(), listFoods(), outstandingCredits()]);
+
+  // بازیابی پیش‌نویس سبد (فقط اقلامی که هنوز در منو هستند)
+  const draft = loadDraft();
+  const draftItems = draft ? draft.items.filter((i) => foods.some((f) => f.id === i.foodId)) : [];
+
   state = {
     cats, foods,
     activeCat: 'all',
     search: '',
-    cart: [], // {foodId, name, price, qty}
-    discount: 0,
-    payments: { cash: 0, card: 0, credit: 0 },
-    customer: { name: '', phone: '' },
+    cart: draftItems,
+    discount: draft ? num(draft.discount, 0) : 0,
+    payments: draft
+      ? { cash: num(draft.payments?.cash, 0), card: num(draft.payments?.card, 0), credit: num(draft.payments?.credit, 0) }
+      : { cash: 0, card: 0, credit: 0 },
+    customer: draft && draft.customer ? { name: draft.customer.name || '', phone: draft.customer.phone || '' } : { name: '', phone: '' },
     listDate: todayJalali(),
     sales: await listSales({ date: todayJalali() }),
     outstanding,
   };
+  if (draftItems.length) {
+    setTimeout(() => toast('پیش‌نویس سبد قبلی بازیابی شد', 'info', 3000), 400);
+  }
 
   root.innerHTML = `
     <div class="page-enter">
@@ -62,6 +98,12 @@ export async function render(root) {
           <!-- سبد خرید -->
         </div>
       </div>
+    </div>
+
+    <div id="cart-fab" role="status" aria-label="سبد خرید">
+      <span class="fab-count" id="fab-count">۰</span>
+      <span class="fab-total" id="fab-total">۰ تومان</span>
+      <button class="btn btn-gold" id="fab-go" type="button">دیدن سبد و پرداخت</button>
     </div>`;
 
   renderChips();
@@ -206,8 +248,24 @@ function receiveModal(sale) {
 async function refreshAfterChange() {
   state.sales = await listSales({ date: state.listDate });
   state.outstanding = await outstandingCredits();
+  document.getElementById('fab-go')?.addEventListener('click', () => {
+    document.getElementById('cart-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+
   renderCreditBar();
   renderSalesList();
+}
+
+/** به‌روزرسانی نوار سبد شناور (موبایل) */
+function updateFab() {
+  const fab = document.getElementById('cart-fab');
+  if (!fab) return;
+  const count = state.cart.reduce((s, l) => s + l.qty, 0);
+  document.getElementById('fab-count').textContent = toFa(count);
+  document.getElementById('fab-total').textContent = `${fmtMoney(cartTotals().total)} تومان`;
+  const show = state.cart.length > 0;
+  fab.classList.toggle('visible', show);
+  document.getElementById('page')?.classList.toggle('has-cart-fab', show);
 }
 
 function renderChips() {
@@ -276,9 +334,13 @@ function cartTotals() {
 
 function renderCart() {
   const el = document.getElementById('cart-panel');
+  if (!el) return;
   const { subtotal, discount, total } = cartTotals();
   const p = state.payments;
   const paySum = roundToman(num(p.cash, 0) + num(p.card, 0) + num(p.credit, 0));
+
+  updateFab();
+  saveDraft();
 
   el.innerHTML = `
     <div class="card-title">${icon('cart')} سبد فروش</div>
@@ -359,6 +421,10 @@ function renderCart() {
     document.getElementById('credit-fields')?.classList.toggle('hidden', num(state.payments.credit, 0) <= 0);
   });
 
+  // همگام‌سازی اطلاعات مشتری با پیش‌نویس (بدون رندر مجدد تا فوکوس از بین نرود)
+  el.querySelector('#cust-name')?.addEventListener('input', (e) => { state.customer.name = e.target.value; saveDraft(); });
+  el.querySelector('#cust-phone')?.addEventListener('input', (e) => { state.customer.phone = e.target.value; saveDraft(); });
+
   el.querySelector('#pay-full')?.addEventListener('click', () => {
     state.payments = { cash: cartTotals().total, card: 0, credit: 0 };
     renderCart();
@@ -379,15 +445,12 @@ async function submitSale() {
   const { total } = cartTotals();
   if (!state.cart.length) return;
 
-  const custName = document.getElementById('cust-name')?.value || '';
-  const custPhone = document.getElementById('cust-phone')?.value || '';
-
   try {
     const { sale, warnings } = await createSale({
       items: state.cart.map((c) => ({ foodId: c.foodId, qty: c.qty, unitPrice: c.price })),
       discount: state.discount,
       payments: state.payments,
-      customer: { name: custName, phone: custPhone },
+      customer: { name: state.customer.name, phone: state.customer.phone },
     });
     state.cart = [];
     state.discount = 0;
