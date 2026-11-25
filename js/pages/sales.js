@@ -307,7 +307,7 @@ function renderFoods() {
   }
   el.innerHTML = foods.map((f) => `
     <button class="food-card" data-food="${f.id}" type="button">
-      ${f.image ? `<img src="${escapeHtml(f.image)}" alt="" />` : ''}
+      ${f.image ? `<img src="${escapeHtml(f.image)}" alt="" onerror="this.remove()" />` : ''}
       <span class="fc-name">${escapeHtml(f.name)}</span>
       <span class="fc-cat">${escapeHtml(catMap.get(f.categoryId) || '')}</span>
       <span class="fc-price">${fmtMoney(f.price)} تومان</span>

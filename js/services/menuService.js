@@ -125,7 +125,7 @@ export const SUGGESTED_MENU = [
   { name: 'نان', foods: ['نان تازه', 'نان سنگک', 'نان لواش', 'نان بربری', 'نان تست'] },
   { name: 'پنیر', foods: ['پنیر سفید', 'پنیر صبحانه', 'پنیر و گردو'] },
   { name: 'گردو', foods: ['گردو تازه', 'مغز گردو'] },
-  { name: 'نوشیدنی', foods: ['چای', 'چای شیرین', 'قهوه', 'دلستر', 'آب پرتقال', 'شیر'] },
+  { name: 'نوشیدنی', foods: ['چای', 'چای شیرین', 'قهوه', 'کاپوچینو', 'نسکافه', 'دمنوش', 'نوشابه', 'دوغ', 'آب', 'دلستر', 'آب پرتقال', 'شیر'] },
   { name: 'جگر', foods: ['جگر سرخ‌کرده', 'جگر با پیاز'] },
   { name: 'قلوه', foods: ['قلوه سرخ‌کرده'] },
   { name: 'دل', foods: ['دل سرخ‌کرده'] },
@@ -138,6 +138,112 @@ export const SUGGESTED_MENU = [
   { name: 'سیب‌زمینی', foods: ['سیب‌زمینی سرخ‌کرده', 'سیب‌زمینی با پنیر'] },
   { name: 'غذای شام', foods: ['کباب', 'جوجه‌کباب', 'خورش قیمه', 'خورش قورمه‌سبزی', 'پلو مخلوط'] },
 ];
+
+/* ---------- تصاویر منو: نام غذا → فایل تصویر ----------
+   عکس‌های واقعی (jpg) به‌تدریج جایگزین تصاویر طراحی‌شده (ph/*.svg) می‌شوند.
+   مسیرهای نسبی‌اند تا آفلاین و در GitHub Pages هم کار کنند. */
+export const MENU_IMAGES = {
+  "چای": "tea.jpg",
+  "چای شیرین": "tea-sweet.jpg",
+  "قهوه": "coffee.jpg",
+  "کاپوچینو": "cappuccino.jpg",
+  "نسکافه": "nescafe.jpg",
+  "دمنوش": "herbal-tea.jpg",
+  "نوشابه": "soda.jpg",
+  "دوغ": "doogh.jpg",
+  "آب": "water.jpg",
+  "آب پرتقال": "orange-juice.jpg",
+  "شیر": "ph/milk.svg",
+  "دلستر": "ph/malt-drink.svg",
+  "املت گوجه": "ph/omelette-tomato.svg",
+  "املت گوجه و پنیر": "ph/omelette-tomato-cheese.svg",
+  "املت پنیر": "ph/omelette-cheese.svg",
+  "املت گردو": "ph/omelette-walnut.svg",
+  "املت سبزیجات": "ph/omelette-veggie.svg",
+  "املت قارچ": "ph/omelette-mushroom.svg",
+  "نیمرو ساده": "ph/sunny-egg-plain.svg",
+  "نیمرو زرده": "ph/sunny-egg-yolk.svg",
+  "نیمرو با پنیر": "ph/sunny-egg-cheese.svg",
+  "نیمرو با گردو": "ph/sunny-egg-walnut.svg",
+  "پنیر و سبزی": "ph/cheese-herbs.svg",
+  "گردو و پنیر": "ph/walnut-cheese.svg",
+  "مربا و کره": "ph/jam-butter.svg",
+  "عسل و خامه": "ph/honey-cream.svg",
+  "کره و پنیر": "ph/butter-cheese.svg",
+  "عدسی ساده": "ph/adasi.svg",
+  "عدسی با ترشی": "ph/adasi-pickles.svg",
+  "عدسی و نان تازه": "ph/adasi-nan.svg",
+  "لوبیا ساده": "ph/lobio.svg",
+  "لوبیا با ترشی": "ph/lobio-pickles.svg",
+  "لوبیا و نان": "ph/lobio-nan.svg",
+  "نان تازه": "ph/nan-fresh.svg",
+  "نان سنگک": "ph/nan-sangak.svg",
+  "نان لواش": "ph/nan-lavash.svg",
+  "نان بربری": "ph/nan-barbari.svg",
+  "نان تست": "ph/bread-toast.svg",
+  "پنیر سفید": "ph/cheese-white.svg",
+  "پنیر صبحانه": "ph/cheese-breakfast.svg",
+  "پنیر و گردو": "ph/cheese-walnut.svg",
+  "گردو تازه": "ph/walnut-fresh.svg",
+  "مغز گردو": "ph/walnut-kernel.svg",
+  "جگر سرخ‌کرده": "ph/liver-fried.svg",
+  "جگر با پیاز": "ph/liver-onion.svg",
+  "قلوه سرخ‌کرده": "ph/kidney-fried.svg",
+  "دل سرخ‌کرده": "ph/heart-fried.svg",
+  "آش رشته": "ph/ash-reshteh.svg",
+  "حلیم": "ph/haleem.svg",
+  "کیک": "ph/cake.svg",
+  "شیرینی": "ph/pastry.svg",
+  "بستنی": "ph/ice-cream.svg",
+  "میوه فصل": "ph/seasonal-fruit.svg",
+  "پیتزا مخصوص": "ph/pizza-special.svg",
+  "پیتزا پنیر": "ph/pizza-cheese.svg",
+  "پیتزا قارچ و گوشت": "ph/pizza-mushroom-meat.svg",
+  "ساندویچ کالباس": "ph/sandwich-salami.svg",
+  "ساندویچ مرغ": "ph/sandwich-chicken.svg",
+  "ساندویچ گوشت": "ph/sandwich-beef.svg",
+  "ساندویچ مخصوص": "ph/sandwich-special.svg",
+  "برگر گوشت": "ph/burger-beef.svg",
+  "برگر مرغ": "ph/burger-chicken.svg",
+  "چیز برگر": "ph/cheeseburger.svg",
+  "سیب‌زمینی سرخ‌کرده": "ph/fries.svg",
+  "سیب‌زمینی با پنیر": "ph/fries-cheese.svg",
+  "کباب": "ph/kebab.svg",
+  "جوجه‌کباب": "ph/jujeh-kebab.svg",
+  "خورش قیمه": "ph/gheimeh.svg",
+  "خورش قورمه‌سبزی": "ph/ghormeh-sabzi.svg",
+  "پلو مخلوط": "ph/polo-mix.svg",
+};
+
+/** مسیر تصویر پیشنهادی برای یک نام غذا (در صورت نبود، null) */
+export function imageForFood(name) {
+  const key = String(name || '').trim();
+  if (MENU_IMAGES[key]) return `./img/menu/${MENU_IMAGES[key]}`;
+  // تطبیق بدون حروف اضافه: «آب معدنی» ← «آب»
+  const aliases = { 'آب معدنی': 'آب', 'چای سبز': 'دمنوش', 'اسپرسو': 'قهوه', 'پیتزا': 'پیتزا مخصوص', 'کباب کوبیده': 'کباب' };
+  const alias = aliases[key];
+  if (alias && MENU_IMAGES[alias]) return `./img/menu/${MENU_IMAGES[alias]}`;
+  return null;
+}
+
+/**
+ * اعمال تصاویر پیشنهادی روی غذاهای بدون تصویر (و به‌روزرسانی مسیرهای مدیریت‌شده قدیمی).
+ * تصاویر آپلودی کاربر (dataURL) هرگز دست نمی‌خورند. ایدمپوتنت.
+ */
+export async function applyMenuImages() {
+  const foods = await listFoods();
+  let updated = 0;
+  for (const food of foods) {
+    const img = imageForFood(food.name);
+    if (!img) continue;
+    const managed = !food.image || String(food.image).startsWith('./img/menu/');
+    if (managed && food.image !== img) {
+      await db.put('foods', { ...food, image: img, updatedAt: Date.now() });
+      updated += 1;
+    }
+  }
+  return updated;
+}
 
 /**
  * ساخت دسته‌ها و غذاهای پیشنهادی — فقط مواردی که وجود ندارند اضافه می‌شوند.
@@ -163,7 +269,7 @@ export async function seedSuggestedMenu({ withPrices = false } = {}) {
       if (foods.some((f) => f.categoryId === cat.id && normalize(f.name) === normalize(fname))) continue;
       const food = {
         id: uid('food'), categoryId: cat.id, name: fname,
-        price: withPrices ? 0 : 0, description: '', image: null,
+        price: withPrices ? 0 : 0, description: '', image: imageForFood(fname),
         active: true, createdAt: Date.now(), updatedAt: Date.now(),
       };
       await db.put('foods', food);
@@ -171,6 +277,7 @@ export async function seedSuggestedMenu({ withPrices = false } = {}) {
       addedFoods += 1;
     }
   }
+  await applyMenuImages();
   await db.logHistory({
     entity: 'menu', entityId: 'seed', action: 'create',
     note: `ساخت منوی پیشنهادی: ${addedCats} دسته، ${addedFoods} غذا`,

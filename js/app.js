@@ -6,6 +6,7 @@ import { getSettings, applyTheme, syncBrandLogo } from './core/settings.js';
 import { openDB } from './core/db.js';
 import { ensureInitialCash } from './services/cashService.js';
 import { generateRecurring } from './services/expenseService.js';
+import { applyMenuImages } from './services/menuService.js';
 import { ICONS, icon, toast, confirmDialog, openModal } from './ui/components.js';
 import { todayJalali, fmtDateLong, weekdayOf, toFa, monthKey, escapeHtml, formatNumInput, daysInMonth } from './core/utils.js';
 
@@ -171,9 +172,10 @@ export async function initApp() {
     return;
   }
 
-  // صندوق و هزینه‌های دوره‌ای
+  // صندوق، تصاویر منو و هزینه‌های دوره‌ای
   try {
     await ensureInitialCash();
+    await applyMenuImages();
     if (settings.recurringAuto) {
       const r = await generateRecurring(monthKey(todayJalali()));
       if (r.created.length) toast(`${toFa(r.created.length)} هزینه دوره‌ای ایجاد شد`, 'info');

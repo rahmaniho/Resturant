@@ -135,7 +135,7 @@ function renderFoods(el) {
     columns: [
       {
         key: 'name', label: 'غذا',
-        render: (r) => `<div class="flex" style="gap:9px">${r.image ? `<img src="${escapeHtml(r.image)}" style="width:34px;height:34px;border-radius:8px;object-fit:cover" alt="" />` : ''}<div><b>${escapeHtml(r.name)}</b>${r.description ? `<div class="text-sm text-muted">${escapeHtml(r.description)}</div>` : ''}</div></div>`,
+        render: (r) => `<div class="flex" style="gap:9px">${r.image ? `<img src="${escapeHtml(r.image)}" style="width:34px;height:34px;border-radius:8px;object-fit:cover" alt="" onerror="this.remove()" />` : ''}<div><b>${escapeHtml(r.name)}</b>${r.description ? `<div class="text-sm text-muted">${escapeHtml(r.description)}</div>` : ''}</div></div>`,
       },
       { key: 'catName', label: 'دسته' },
       { key: 'priceText', label: 'قیمت', cls: 'num' },

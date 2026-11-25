@@ -191,6 +191,51 @@ await test('منوی پیشنهادی به‌صورت داده اضافه می�
   assert.equal(r2.addedCats, 0);
   assert.equal(r2.addedFoods, 0);
 });
+
+await test('تصاویر منو: نقشه کامل ۷۰ قلمی، فایل‌های موجود و اعمال روی غذاها', async () => {
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const entries = Object.entries(menu.MENU_IMAGES);
+  assert.ok(entries.length >= 70, `نقشه تصاویر باید حداقل ۷۰ قلم باشد (${entries.length})`);
+  // همه فایل‌های نقشه روی دیسک وجود دارند
+  for (const [name, file] of entries) {
+    const p = path.join(process.cwd(), 'img', 'menu', file);
+    assert.ok(fs.existsSync(p), `فایل تصویر موجود نیست: ${name} → ${file}`);
+  }
+  // همه غذاهای منوی پیشنهادی در نقشه‌اند (پوشش کامل)
+  const seedNames = new Set(menu.SUGGESTED_MENU.flatMap((g) => g.foods));
+  assert.ok(seedNames.size >= 70, `منوی پیشنهادی باید ≥۷۰ قلم باشد (${seedNames.size})`);
+  for (const n of seedNames) assert.ok(menu.MENU_IMAGES[n], `غذای پیشنهادی بدون تصویر: ${n}`);
+  // غذاهای seed ساخته‌شده تصویر دارند
+  const foods = await menu.listFoods();
+  const seeded = foods.filter((f) => seedNames.has(f.name));
+  assert.ok(seeded.length > 0);
+  for (const f of seeded) assert.ok(f.image, `غذای seed بدون تصویر: ${f.name}`);
+  // نام ناشناخته → بدون تصویر می‌ماند
+  const cat = (await menu.listCategories())[0];
+  const plain = await menu.addFood({ categoryId: cat.id, name: 'غذای تست بی‌تصویر', price: 1000 });
+  assert.equal(plain.image, null);
+  await menu.applyMenuImages();
+  const afterPlain = (await menu.listFoods()).find((x) => x.id === plain.id);
+  assert.equal(afterPlain.image, null, 'نام ناشناخته نباید تصویر بگیرد');
+  await menu.deleteFood(plain.id);
+  // پاک‌شدن تصویر → بازیابی خودکار + دست‌نزدن به تصویر آپلودی کاربر
+  const tea = (await menu.listFoods()).find((x) => x.name === 'چای');
+  assert.ok(tea?.image?.endsWith('tea.jpg'), 'چای باید عکس tea.jpg داشته باشد');
+  await menu.updateFood(tea.id, { image: null });
+  await menu.applyMenuImages();
+  const tea2 = (await menu.listFoods()).find((x) => x.id === tea.id);
+  assert.ok(tea2.image?.endsWith('tea.jpg'), 'تصویر چای بعد از پاک‌شدن بازیابی نشد');
+  await menu.updateFood(tea.id, { image: 'data:image/png;base64,AAA' });
+  await menu.applyMenuImages();
+  const tea3 = (await menu.listFoods()).find((x) => x.id === tea.id);
+  assert.equal(tea3.image, 'data:image/png;base64,AAA', 'تصویر آپلودی کاربر نباید جایگزین شود');
+  await menu.updateFood(tea.id, { image: './img/menu/tea.jpg' });
+  // نوشیدنی‌های جدید در منوی پیشنهادی هستند
+  for (const d of ['نوشابه', 'دوغ', 'آب', 'کاپوچینو', 'نسکافه', 'دمنوش']) {
+    assert.ok(seedNames.has(d), `نوشیدنی ${d} در منوی پیشنهادی نیست`);
+  }
+});
 await test('ویرایش و حذف غذا', async () => {
   const foods = await menu.listFoods();
   const target = foods.find((f) => f.name === 'املت گوجه');
