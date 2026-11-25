@@ -3,7 +3,7 @@
    ============================================================ */
 
 import * as db from '../core/db.js';
-import { uid, normalize } from '../core/utils.js';
+import { uid, normalize, num } from '../core/utils.js';
 
 /* ---------- دسته‌بندی‌ها ---------- */
 
@@ -61,7 +61,7 @@ export async function addFood({ categoryId, name, price, description = '', image
   if (!categoryId) throw new Error('دسته‌بندی را انتخاب کنید');
   const cat = await db.get('categories', categoryId);
   if (!cat) throw new Error('دسته‌بندی یافت نشد');
-  const priceN = Math.round(Number(price) || 0);
+  const priceN = Math.round(num(price, 0)); // ارقام فارسی و جداکننده هزارگان
   if (priceN < 0) throw new Error('قیمت نمی‌تواند منفی باشد');
   const all = await db.getAll('foods');
   if (all.some((f) => f.categoryId === categoryId && normalize(f.name) === normalize(n))) {
@@ -92,7 +92,7 @@ export async function updateFood(id, patch) {
   const after = {
     ...before,
     name, categoryId,
-    price: patch.price != null ? Math.round(Number(patch.price) || 0) : before.price,
+    price: patch.price != null ? Math.round(num(patch.price, 0)) : before.price, // ارقام فارسی
     description: patch.description ?? before.description,
     image: patch.image !== undefined ? patch.image : before.image,
     active: patch.active !== undefined ? patch.active : before.active,

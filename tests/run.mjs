@@ -259,6 +259,19 @@ await test('گسترش منو: ۲۶ دسته و ≥۹۵ قلم با پوشش ت�
   }
 });
 
+await test('قیمت با ارقام فارسی در منو ذخیره می‌شود (باگ Number)', async () => {
+  const cat = (await menu.listCategories())[0];
+  const f = await menu.addFood({ categoryId: cat.id, name: 'غذای تست قیمت فارسی', price: '۱۲۵٬۰۰۰' });
+  assert.equal(f.price, 125000, `addFood با مبلغ فارسی خراب شد: ${f.price}`);
+  const u = await menu.updateFood(f.id, { price: '۲۰۰٬۵۰۰' });
+  assert.equal(u.price, 200500, `updateFood با مبلغ فارسی خراب شد: ${u.price}`);
+  const u2 = await menu.updateFood(f.id, { price: '350000' });
+  assert.equal(u2.price, 350000, `updateFood لاتین خراب شد: ${u2.price}`);
+  const u3 = await menu.updateFood(f.id, { price: 475000 });
+  assert.equal(u3.price, 475000);
+  await menu.deleteFood(f.id);
+});
+
 /* ============================================================ */
 section('مواد اولیه و انبار');
 

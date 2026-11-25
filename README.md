@@ -99,7 +99,7 @@ python3 -m http.server 8080
 ├── vendor/                 # Chart.js, SheetJS, jsPDF, html2canvas + LICENSE
 ├── fonts/                  # Vazirmatn + LICENSE
 ├── icons/                  # آیکون‌های PWA
-└── tests/run.mjs           # تست‌های جامع (۸۵ تست)
+└── tests/run.mjs           # تست‌های جامع (۸۶ تست)
 ```
 
 ---
