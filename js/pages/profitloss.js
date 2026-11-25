@@ -3,6 +3,7 @@
    ============================================================ */
 
 import { profitLoss, compareWithPrevious } from '../services/reportService.js';
+import { getSettings } from '../core/settings.js';
 import { icon, toast, fieldDate, emptyState, buildTable } from '../ui/components.js';
 import { fmtMoney, fmtPercent, fmtDate, toFa, escapeHtml, todayJalali, currentJalaliMonth, downloadBlob, toEn, addDaysJalali, daysInMonth } from '../core/utils.js';
 
@@ -291,12 +292,77 @@ function exportExcel() {
 }
 
 async function exportPdf() {
-  const sheet = document.getElementById('pnl-sheet');
-  if (!sheet) return;
+  if (!lastData) return;
   try {
-    const { exportElementPdf } = await import('../core/exporters.js');
+    const { exportReportPdf } = await import('../core/exporters.js');
     toast('در حال ساخت PDF…', 'info', 2500);
-    await exportElementPdf(sheet, `profit-loss-${range.from}.pdf`, { title: 'گزارش سود و زیان' });
+    const d = lastData;
+    const cmp = lastCmp;
+    const s = getSettings();
+    const money = (n) => fmtMoney(n);
+    const deltaCell = (cur, prev) => {
+      if (!prev) return cur ? 'جدید' : '۰';
+      const diff = cur - prev;
+      const pct = (diff / Math.abs(prev)) * 100;
+      return `${diff >= 0 ? '+' : '−'}${fmtPercent(Math.abs(pct), 0)} (${diff >= 0 ? '+' : '−'}${money(Math.abs(diff))})`;
+    };
+
+    const blocks = [
+      { type: 'kpis', items: [
+        { label: 'درآمد فروش', value: `${money(d.revenue)} تومان` },
+        { label: 'سود ناخالص', value: `${money(d.profit.gross)} تومان` },
+        { label: 'سود خالص', value: `${money(d.profit.net)} تومان` },
+      ] },
+      { type: 'table', title: 'محاسبه سود', columns: [{ label: 'شرح' }, { label: 'مبلغ (تومان)', align: 'num' }],
+        rows: [
+          ['جمع فروش (بدون تخفیف)', money(d.grossSales)],
+          ['تخفیفات', `−${money(d.discount)}`],
+          ['درآمد خالص فروش', money(d.revenue)],
+          ['بهای تمام‌شده کالای فروخته‌شده', `−${money(d.cogs)}`],
+          ['سود ناخالص', money(d.profit.gross)],
+          ['ضایعات انبار', `−${money(d.waste)}`],
+          ['مجموع هزینه‌ها', `−${money(d.expensesTotal)}`],
+        ],
+        totals: ['سود خالص', money(d.profit.net)] },
+      ...(cmp ? [{ type: 'table', title: `مقایسه با بازه قبلی (${toFa(cmp.days)} روز: ${cmp.prevFrom} تا ${cmp.prevTo})`,
+        columns: [{ label: 'شاخص' }, { label: 'بازه فعلی', align: 'num' }, { label: 'بازه قبلی', align: 'num' }, { label: 'تغییر', align: 'num' }],
+        rows: [
+          ['درآمد فروش', money(cmp.curr.revenue), money(cmp.prev.revenue), deltaCell(cmp.curr.revenue, cmp.prev.revenue)],
+          ['سود ناخالص', money(cmp.curr.gross), money(cmp.prev.gross), deltaCell(cmp.curr.gross, cmp.prev.gross)],
+          ['سود خالص', money(cmp.curr.net), money(cmp.prev.net), deltaCell(cmp.curr.net, cmp.prev.net)],
+          ['تعداد فروش', toFa(cmp.curr.salesCount), toFa(cmp.prev.salesCount), deltaCell(cmp.curr.salesCount, cmp.prev.salesCount)],
+          ['مجموع هزینه‌ها', money(cmp.curr.expenses), money(cmp.prev.expenses), deltaCell(cmp.curr.expenses, cmp.prev.expenses)],
+          ['ضایعات انبار', money(cmp.curr.waste), money(cmp.prev.waste), deltaCell(cmp.curr.waste, cmp.prev.waste)],
+        ] }] : []),
+      { type: 'table', title: 'هزینه‌ها به تفکیک', columns: [{ label: 'دسته' }, { label: 'مبلغ (تومان)', align: 'num' }],
+        rows: d.expensesByCategory.length
+          ? d.expensesByCategory.map((c) => [c.name, money(c.amount)])
+          : [['هزینه‌ای در این بازه ثبت نشده', '—']],
+        totals: ['جمع هزینه‌ها', money(d.expensesTotal)] },
+      { type: 'table', title: 'ترکیب پرداخت خریداران', columns: [{ label: 'شیوه' }, { label: 'مبلغ (تومان)', align: 'num' }],
+        rows: [
+          ['نقدی', money(d.payments.cash)],
+          ['کارت‌خوان', money(d.payments.card)],
+          ['نسیه (دریافت‌نشده)', money(d.payments.credit)],
+        ],
+        totals: ['جمع', money(d.revenue)] },
+      { type: 'table', title: 'گردش نقدی بازه', columns: [{ label: 'ردیف' }, { label: 'مبلغ (تومان)', align: 'num' }],
+        rows: [
+          ['ورودی صندوق', money(d.cashflow.in)],
+          ['خروجی صندوق', `−${money(d.cashflow.out)}`],
+        ],
+        totals: ['خالص گردش', money(d.cashflow.net)] },
+      { type: 'note', text: `تعداد اسناد فروش: ${toFa(d.salesCount)} | بازه گزارش: ${d.from} تا ${d.to}` },
+    ];
+
+    await exportReportPdf({
+      title: 'گزارش سود و زیان',
+      subtitle: 'گزارش رسمی مالی',
+      range: `${d.from} تا ${d.to}`,
+      brand: s.restaurantName || 'صبحانه‌سرای آفتاب',
+      logo: s.restaurantLogo || './icons/icon-192.png',
+      blocks,
+    }, `profit-loss-${d.from}-${d.to}.pdf`);
     toast('PDF ساخته شد');
   } catch (e) {
     toast(e.message || 'خطا در ساخت PDF', 'error');

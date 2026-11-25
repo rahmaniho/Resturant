@@ -3,6 +3,7 @@
    ============================================================ */
 
 import { dailyReport } from '../services/reportService.js';
+import { getSettings } from '../core/settings.js';
 import { icon, toast, emptyState } from '../ui/components.js';
 import { fmtMoney, fmtDateLong, toFa, escapeHtml, todayJalali, weekdayOf, fmtQty, toEn } from '../core/utils.js';
 
@@ -162,12 +163,61 @@ function exportExcel() {
 }
 
 async function exportPdf() {
-  const sheet = document.getElementById('daily-sheet');
-  if (!sheet) return;
+  if (!lastData) return;
   try {
-    const { exportElementPdf } = await import('../core/exporters.js');
+    const { exportReportPdf } = await import('../core/exporters.js');
     toast('در حال ساخت PDF…', 'info', 2500);
-    await exportElementPdf(sheet, `daily-${date}.pdf`);
+    const d = lastData;
+    const s = getSettings();
+    const money = (n) => fmtMoney(n);
+    const p = d.profit;
+
+    const blocks = [
+      { type: 'kpis', items: [
+        { label: 'درآمد روز', value: `${money(d.revenue)} تومان` },
+        { label: 'سود ناخالص', value: `${money(p.gross)} تومان` },
+        { label: 'سود خالص روز', value: `${money(p.net)} تومان` },
+        { label: 'اسناد فروش', value: `${toFa(d.salesCount)} سند` },
+      ] },
+      { type: 'table', title: 'خلاصه مالی روز', columns: [{ label: 'شرح' }, { label: 'مبلغ (تومان)', align: 'num' }],
+        rows: [
+          ['نقدی دریافتی', money(d.payments.cash)],
+          ['کارت‌خوان', money(d.payments.card)],
+          ['نسیه', money(d.payments.credit)],
+          ['درآمد', money(d.revenue)],
+          ['بهای تمام‌شده', `−${money(d.cogs)}`],
+          ['ضایعات', `−${money(d.wasteValue)}`],
+          ['هزینه‌های روز', `−${money(d.expensesTotal)}`],
+        ],
+        totals: ['سود خالص', money(p.net)] },
+      { type: 'table', title: 'فروش به تفکیک غذا', columns: [
+        { label: 'غذا' }, { label: 'تعداد', align: 'num' }, { label: 'درآمد', align: 'num' },
+        { label: 'بهای تمام‌شده', align: 'num' }, { label: 'سود', align: 'num' },
+      ],
+        rows: d.topFoods.length
+          ? d.topFoods.map((f) => [f.name, toFa(f.qty), money(f.revenue), money(f.cost), money(f.revenue - f.cost)])
+          : [['فروشی در این روز ثبت نشده', '—', '—', '—', '—']] },
+      ...(d.purchases.length ? [{ type: 'table', title: 'خریدهای روز', columns: [
+        { label: 'تأمین‌کننده' }, { label: 'مبلغ', align: 'num' }, { label: 'پرداخت', align: 'num' }, { label: 'بدهی', align: 'num' },
+      ],
+        rows: d.purchases.map((pu) => [pu.supplierName || '—', money(pu.total), money(pu.paid), money(pu.remaining)]) }] : []),
+      { type: 'table', title: 'گردش نقدی روز', columns: [{ label: 'ردیف' }, { label: 'مبلغ (تومان)', align: 'num' }],
+        rows: [
+          ['ورودی صندوق', money(d.cashflow.in)],
+          ['خروجی صندوق', `−${money(d.cashflow.out)}`],
+        ],
+        totals: ['خالص گردش', money(d.cashflow.net)] },
+      { type: 'note', text: `تاریخ: ${fmtDateLong(d.date)} — ${weekdayOf(d.date)} | ضایعات ثبت‌شده: ${toFa(d.wasteMovs.length)} مورد | کمبود موجودی فعلی: ${toFa(d.lowStock.length)} مورد` },
+    ];
+
+    await exportReportPdf({
+      title: 'گزارش روزانه',
+      subtitle: 'گزارش رسمی یک روز',
+      range: fmtDateLong(d.date),
+      brand: s.restaurantName || 'صبحانه‌سرای آفتاب',
+      logo: s.restaurantLogo || './icons/icon-192.png',
+      blocks,
+    }, `daily-${d.date}.pdf`);
     toast('PDF ساخته شد');
   } catch (e) {
     toast(e.message || 'خطا در ساخت PDF', 'error');

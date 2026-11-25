@@ -4,7 +4,7 @@
 
 import * as db from '../core/db.js';
 import { getSettings } from '../core/settings.js';
-import { uid, num, todayJalali, nowTime, roundToman, monthKey, currentJalaliMonth } from '../core/utils.js';
+import { uid, num, todayJalali, nowTime, roundToman, monthKey, currentJalaliMonth, daysInMonth } from '../core/utils.js';
 
 /** کلید یکتای سند هزینه — مانع ثبت/شمارش تکراری می‌شود */
 function makeUniqueKey(rec) {
@@ -153,6 +153,25 @@ export async function addTemplate({ category, amount, description = '', source =
   return tpl;
 }
 
+export async function updateTemplate(id, patch) {
+  const before = await db.get('expenseTemplates', id);
+  if (!before) throw new Error('قالب یافت نشد');
+  const after = {
+    ...before,
+    category: String(patch.category ?? before.category).trim(),
+    amount: patch.amount != null ? roundToman(num(patch.amount, 0)) : before.amount,
+    description: patch.description ?? before.description,
+    source: patch.source === 'card' ? 'card' : patch.source === 'cash' ? 'cash' : before.source,
+    day: patch.day != null ? Math.min(31, Math.max(1, num(patch.day, 1))) : before.day,
+    updatedAt: Date.now(),
+  };
+  if (!after.category) throw new Error('دسته هزینه الزامی است');
+  if (after.amount <= 0) throw new Error('مبلغ باید بزرگ‌تر از صفر باشد');
+  await db.put('expenseTemplates', after);
+  await db.logHistory({ entity: 'expenseTemplates', entityId: id, action: 'update', before, after });
+  return after;
+}
+
 export async function deleteTemplate(id) {
   const before = await db.get('expenseTemplates', id);
   if (!before) throw new Error('قالب یافت نشد');
@@ -162,19 +181,29 @@ export async function deleteTemplate(id) {
 }
 
 /**
- * ایجاد اسناد هزینه دوره جاری از روی قالب‌ها — با کلید یکتا؛
+ * ایجاد اسناد هزینه دوره از روی قالب‌ها — با کلید یکتا؛
  * هر قالب حداکثر یک سند برای هر ماه شمسی ساخته می‌شود (بدون دوباره‌شماری).
+ * قانون روز: در ماه جاری، سند فقط در «روز تعیین‌شده یا بعد از آن» ساخته می‌شود
+ * (مثل اجاره که هر ماه روز ۵ ثبت می‌شود)؛ برای ماه‌های قبلی همه قالب‌ها بازسازی می‌شوند.
+ * روزهای بیشتر از طول ماه (مثلاً ۳۱ در ماه ۳۰روزه) در آخرین روز ماه اعمال می‌شوند.
  */
 export async function generateRecurring(month = null) {
   const mk = month || monthKey(todayJalali());
+  const isCurrent = mk === monthKey(todayJalali());
+  const today = todayJalali();
+  const todayDay = Number(today.slice(8, 10));
+  const [mjy, mjm] = mk.split('-').map(Number);
+  const dim = daysInMonth(mjy, mjm);
   const templates = (await listTemplates()).filter((t) => t.active !== false);
   const created = [];
   let skipped = 0;
   for (const tpl of templates) {
+    const day = Math.min(Math.max(1, num(tpl.day, 1)), dim);
+    // ماه جاری: هنوز به روز تعیین‌شده نرسیده‌ایم → صبر کن
+    if (isCurrent && day > todayDay) { skipped += 1; continue; }
     const uniqueKey = `rec:${tpl.id}:${mk}`;
     const exists = await db.getByIndex('expenses', 'uniqueKey', uniqueKey);
     if (exists.length) { skipped += 1; continue; }
-    const day = Math.min(31, Math.max(1, tpl.day));
     const date = `${mk}-${String(day).padStart(2, '0')}`;
     const rec = {
       id: uid('exp'),

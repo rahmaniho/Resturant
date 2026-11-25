@@ -60,6 +60,16 @@ export async function render(root) {
               <label>&nbsp;</label>
               <label class="checkbox-row"><input type="checkbox" id="set-lowstock" ${s.lowStockAlerts ? 'checked' : ''} /> نمایش هشدار کمبود موجودی</label>
             </div>
+            <div class="field" style="grid-column:1/-1">
+              <label>لوگوی مجموعه (چاپ فاکتور و سربرگ گزارش‌ها)</label>
+              <div class="flex" style="gap:10px;align-items:center;flex-wrap:wrap">
+                <img id="logo-preview" src="${escapeHtml(s.restaurantLogo || './icons/icon-192.png')}" alt=""
+                     style="width:48px;height:48px;border-radius:10px;object-fit:cover;border:1px solid var(--border,#ccc);background:#fff" />
+                <input type="file" id="set-logo" accept="image/*" class="input" style="max-width:250px;padding:7px" />
+                <button class="btn btn-ghost btn-sm" id="logo-clear" type="button">${icon('trash')} حذف لوگو</button>
+              </div>
+              <span class="hint">تصویر خودکار کوچک می‌شود و فقط روی همین دستگاه می‌ماند؛ در فاکتور چاپی و PDF گزارش‌ها استفاده می‌شود.</span>
+            </div>
           </div>
           <button class="btn btn-primary mt-16" id="save-appearance" type="button">ذخیره تنظیمات</button>
         </div>
@@ -125,6 +135,27 @@ export async function render(root) {
     document.querySelector('.brand-title').textContent = getSettings().restaurantName;
     document.title = `${getSettings().restaurantName} — نرم‌افزار مدیریت`;
     toast('تنظیمات ذخیره شد');
+  });
+
+  /* ---------- لوگوی مجموعه ---------- */
+  root.querySelector('#set-logo')?.addEventListener('change', async (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) { toast('یک فایل تصویری انتخاب کنید', 'warn'); return; }
+    try {
+      const dataUrl = await resizeImage(file, 300);
+      saveSettings({ restaurantLogo: dataUrl });
+      toast('لوگو ذخیره شد و روی فاکتورها اعمال می‌شود');
+      await render(document.getElementById('page'));
+    } catch {
+      toast('خواندن تصویر ممکن نشد؛ فایل دیگری انتخاب کنید', 'error');
+    }
+  });
+  root.querySelector('#logo-clear')?.addEventListener('click', async () => {
+    if (!getSettings().restaurantLogo) { toast('لوگویی ثبت نشده', 'info'); return; }
+    saveSettings({ restaurantLogo: null });
+    toast('لوگو حذف شد');
+    await render(document.getElementById('page'));
   });
 
   root.querySelector('#save-cash').addEventListener('click', async () => {
@@ -221,4 +252,34 @@ function entityLabel(e) {
 function actionLabel(a) {
   const map = { create: 'ایجاد', update: 'ویرایش', delete: 'حذف', import: 'بازیابی', system: 'سیستم' };
   return map[a] || a;
+}
+
+/** کوچک‌سازی تصویر لوگو (حداکثر عرض maxW) و تبدیل به dataURL */
+function resizeImage(file, maxW) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('read-failed'));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('decode-failed'));
+      img.onload = () => {
+        try {
+          const scale = Math.min(1, maxW / Math.max(1, img.width));
+          const w = Math.max(1, Math.round(img.width * scale));
+          const h = Math.max(1, Math.round(img.height * scale));
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) { reject(new Error('canvas-unavailable')); return; }
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, w, h);
+          ctx.drawImage(img, 0, 0, w, h);
+          resolve(canvas.toDataURL('image/jpeg', 0.85));
+        } catch (err) { reject(err); }
+      };
+      img.src = String(reader.result);
+    };
+    reader.readAsDataURL(file);
+  });
 }

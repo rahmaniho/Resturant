@@ -205,6 +205,75 @@ export async function outstandingCredits() {
   };
 }
 
+/**
+ * فهرست مشتریان (استخراج از اسناد فروش — بدون جدول جداگانه)
+ * کلید: شماره تلفن (در صورت وجود) وگرنه نام؛ مرتب‌شده بر اساس طلب باقی‌مانده.
+ */
+export async function listCustomers() {
+  const sales = await db.getAll('sales');
+  const map = new Map();
+  for (const s of sales) {
+    const name = String(s.customer?.name || '').trim();
+    const phoneRaw = String(s.customer?.phone || '').trim();
+    const phone = phoneRaw.replace(/[^\d۰-۹]/g, '').replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d));
+    if (!name && !phone) continue; // فروش بدون هویت مشتری
+    const key = phone || normalize(name);
+    let c = map.get(key);
+    if (!c) {
+      c = { key, name: '', phone: '', salesCount: 0, total: 0, credit: 0, lastDate: '', sales: [] };
+      map.set(key, c);
+    }
+    if (!c.name && name) c.name = name;
+    if (!c.phone && phoneRaw) c.phone = phoneRaw;
+    c.salesCount += 1;
+    c.total = roundToman(c.total + num(s.total, 0));
+    c.credit = roundToman(c.credit + num(s.creditRemaining, 0));
+    c.sales.push(s);
+    if (s.date > c.lastDate) c.lastDate = s.date;
+  }
+  return [...map.values()]
+    .map((c) => ({ ...c, sales: c.sales.sort((a, b) => a.date.localeCompare(b.date) || a.ts - b.ts) }))
+    .sort((a, b) => b.credit - a.credit || b.total - a.total);
+}
+
+/**
+ * تسویه حساب مشتری: تقسیم مبلغ پرداختی روی طلب‌های قدیمی‌تر ( FIFO )
+ * تا سقف طلب باقی‌مانده — با پرداخت کامل، حساب مشتری صفر می‌شود.
+ */
+export async function settleCustomer({ key, amount, date = todayJalali(), note = '' }) {
+  const customers = await listCustomers();
+  const customer = customers.find((c) => c.key === key);
+  if (!customer) throw new Error('مشتری یافت نشد');
+  const outstanding = customer.sales.filter((s) => num(s.creditRemaining, 0) > 0);
+  const totalCredit = roundToman(outstanding.reduce((sum, s) => sum + num(s.creditRemaining, 0), 0));
+  if (totalCredit <= 0) throw new Error('طلبی برای این مشتری باقی نمانده است');
+  const amt = roundToman(num(amount, 0));
+  if (amt <= 0) throw new Error('مبلغ پرداختی باید بزرگ‌تر از صفر باشد');
+  if (amt > totalCredit) throw new Error(`مبلغ پرداختی از طلب باقی‌مانده (${fmtMoneyLocal(totalCredit)}) بیشتر است`);
+
+  let left = amt;
+  const results = [];
+  for (const s of outstanding) { // قدیمی‌ترین اول
+    const take = Math.min(left, num(s.creditRemaining, 0));
+    if (take <= 0) continue;
+    const r = await receiveCredit({
+      saleId: s.id, amount: take, date,
+      note: note || `تسویه حساب${customer.name ? ` ${customer.name}` : ''}`,
+    });
+    results.push(r);
+    left = roundToman(left - take);
+    if (left <= 0) break;
+  }
+  const paid = roundToman(amt - left);
+  return {
+    customer,
+    paid,
+    settledSales: results.length,
+    cleared: roundToman(totalCredit - paid) === 0,
+    remainingCredit: roundToman(totalCredit - paid),
+  };
+}
+
 function fmtMoneyLocal(n) {
   return `${Number(n).toLocaleString('fa-IR')} تومان`;
 }

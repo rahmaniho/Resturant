@@ -75,6 +75,101 @@ export async function exportElementPdf(element, filename, opts = {}) {
 }
 
 /**
+ * سند گزارش «تمیز» برای PDF: صفحه سفید، متن مشکی، جدول‌های اختصاصی همان گزارش
+ * (نه اسکرین‌شات صفحه برنامه).
+ *
+ * cfg: {
+ *   title, subtitle?, range?, brand?, logo?,
+ *   blocks: Array<
+ *     {type:'kpis', items:[{label, value}]},
+ *     {type:'table', title?, columns:[{label, align?:'num'|'center'}], rows:Array<Array<string>>, totals?:Array<string>},
+ *     {type:'note', text},
+ *     {type:'text', text}
+ *   >
+ * }
+ * @returns {HTMLElement} عنصر آماده (باید append و سپس حذف شود)
+ */
+export function buildReportDocument(cfg) {
+  const brand = cfg.brand || 'صبحانه‌سرای آفتاب';
+  const logo = cfg.logo || './icons/icon-192.png';
+  const wrap = document.createElement('div');
+  wrap.className = 'report-doc';
+  wrap.style.cssText = 'background:#fff;color:#111;font-family:Vazirmatn,Tahoma,sans-serif';
+
+  const cellCls = (a) => (a === 'num' ? 'text-align:left;direction:ltr' : a === 'center' ? 'text-align:center' : 'text-align:right');
+
+  const blockHtml = (b) => {
+    if (b.type === 'kpis') {
+      return `<table style="width:100%;border-collapse:collapse;margin:12px 0">
+        <tbody><tr>
+          ${b.items.map((k) => `<td style="border:1px solid #333;padding:10px;text-align:center;width:${Math.max(20, Math.floor(100 / b.items.length))}%">
+            <div style="font-size:11px;color:#333">${escapeHtml(k.label)}</div>
+            <div style="font-size:15px;font-weight:800;color:#000;margin-top:4px">${escapeHtml(String(k.value))}</div>
+          </td>`).join('')}
+        </tr></tbody>
+      </table>`;
+    }
+    if (b.type === 'table') {
+      return `${b.title ? `<div style="font-size:13.5px;font-weight:800;color:#000;margin:16px 0 6px;border-right:4px solid #000;padding-right:8px">${escapeHtml(b.title)}</div>` : ''}
+      <table style="width:100%;border-collapse:collapse;margin-bottom:6px">
+        <thead><tr>
+          ${b.columns.map((c) => `<th style="border:1px solid #333;background:#ececec;color:#000;padding:7px 8px;font-size:12px;${cellCls(c.align)}">${escapeHtml(c.label)}</th>`).join('')}
+        </tr></thead>
+        <tbody>
+          ${b.rows.map((r) => `<tr>${r.map((c, i) => `<td style="border:1px solid #555;color:#000;padding:6px 8px;font-size:12.5px;${cellCls(b.columns[i]?.align)}">${escapeHtml(c == null ? '' : String(c))}</td>`).join('')}</tr>`).join('')}
+          ${b.totals ? `<tr>${b.totals.map((c, i) => `<td style="border:1px solid #333;background:#f5f5f5;color:#000;padding:7px 8px;font-size:12.5px;font-weight:800;${cellCls(b.columns[i]?.align)}">${escapeHtml(c == null ? '' : String(c))}</td>`).join('')}</tr>` : ''}
+        </tbody>
+      </table>`;
+    }
+    if (b.type === 'note') {
+      return `<div style="font-size:11.5px;color:#333;border:1px dashed #777;padding:8px 10px;margin:10px 0;white-space:pre-wrap">${escapeHtml(b.text)}</div>`;
+    }
+    if (b.type === 'text') {
+      return `<div style="font-size:12.5px;color:#111;margin:8px 0;white-space:pre-wrap">${escapeHtml(b.text)}</div>`;
+    }
+    return '';
+  };
+
+  wrap.innerHTML = `
+    <div style="display:flex;align-items:center;gap:12px;border-bottom:3px solid #000;padding-bottom:10px">
+      <img src="${escapeHtml(logo)}" alt="" style="width:46px;height:46px;border-radius:8px;object-fit:cover;border:1px solid #999" />
+      <div style="flex:1">
+        <div style="font-size:16px;font-weight:800;color:#000">${escapeHtml(brand)}</div>
+        <div style="font-size:11px;color:#444">${escapeHtml(cfg.subtitle || 'گزارش رسمی')}</div>
+      </div>
+      <div style="text-align:left;font-size:11px;color:#444">
+        ${cfg.range ? `<div>${escapeHtml(cfg.range)}</div>` : ''}
+        <div dir="ltr">${escapeHtml(new Date().toLocaleDateString('fa-IR'))}</div>
+      </div>
+    </div>
+    <div style="font-size:19px;font-weight:800;color:#000;margin:14px 0 4px;text-align:center">${escapeHtml(cfg.title || '')}</div>
+    ${(cfg.blocks || []).map(blockHtml).join('')}
+    <div style="margin-top:18px;border-top:1px solid #999;padding-top:6px;font-size:10.5px;color:#555;display:flex;justify-content:space-between">
+      <span>${escapeHtml(brand)} — چاپ‌شده از نرم‌افزار مدیریت</span>
+      <span>تولید: ${escapeHtml(new Date().toLocaleString('fa-IR'))}</span>
+    </div>`;
+  return wrap;
+}
+
+/**
+ * خروجی PDF یک سند گزارش تمیز (سفید/مشکی + جدول‌ها)
+ */
+export async function exportReportPdf(cfg, filename) {
+  const doc = buildReportDocument(cfg);
+  doc.style.position = 'fixed';
+  doc.style.right = '-10000px';
+  doc.style.top = '0';
+  doc.style.width = '794px';
+  doc.style.padding = '26px 30px';
+  document.body.appendChild(doc);
+  try {
+    await exportElementPdf(doc, filename);
+  } finally {
+    doc.remove();
+  }
+}
+
+/**
  * ساخت جدول موقت در DOM برای خروجی PDF
  * @param {{title:string, subtitle?:string, head:string[], rows:Array<Array<string|number>>, totals?:Array<string|number>}} cfg
  */

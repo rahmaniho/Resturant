@@ -654,7 +654,7 @@ const app = await import('../js/app.js');
 await test('initApp بدون خطا اجرا می‌شود و سایدبار را می‌سازد', async () => {
   await app.initApp();
   const items = document.querySelectorAll('.nav-item');
-  assert.equal(items.length, 14, `nav items = ${items.length}`);
+  assert.equal(items.length, 16, `nav items = ${items.length}`);
   assert.equal(document.getElementById('page-title').textContent, 'داشبورد');
   assert.ok(document.getElementById('page').innerHTML.length > 200);
 });
@@ -744,7 +744,7 @@ await test('راهنمای درون‌برنامه‌ای باز می‌شود �
   const modal = document.querySelector('.modal-backdrop');
   assert.ok(modal, 'مودال راهنما باز نشد');
   assert.ok(modal.textContent.includes('مسیر پیشنهادی راه‌اندازی'));
-  assert.equal(modal.querySelectorAll('[data-goto]').length, 14);
+  assert.equal(modal.querySelectorAll('[data-goto]').length, 16);
 
   modal.querySelector('[data-goto="warehouse"]').click();
   await new Promise((r) => setTimeout(r, 200));
@@ -756,12 +756,12 @@ await test('فاکتور رسمی با لوگو، تلفن/نشانی و امض�
   const { saveSettings } = await import('../js/core/settings.js');
   saveSettings({ restaurantPhone: '021-77550000', restaurantAddress: 'تهران، خیابان آزادی، پلاک ۱۲' });
 
-  const salesPage = await import('../js/pages/sales.js');
+  const receipt = await import('../js/core/receipt.js');
   const salesMod = await import('../js/services/salesService.js');
   const list = await salesMod.listSales({});
   assert.ok(list.length > 0, 'سند فروشی برای فاکتور وجود ندارد');
 
-  const el = salesPage.buildReceiptElement(list[0]);
+  const el = receipt.buildReceiptElement(list[0]);
   try {
     assert.ok(el.querySelector('img[src*="icon-192.png"]'), 'لوگوی مجموعه یافت نشد');
     assert.ok(el.textContent.includes('فاکتور فروش رسمی'), 'عنوان رسمی فاکتور نیست');
@@ -775,6 +775,180 @@ await test('فاکتور رسمی با لوگو، تلفن/نشانی و امض�
     el.remove();
     saveSettings({ restaurantPhone: '', restaurantAddress: '' });
   }
+});
+
+await test('صفحه فاکتورها: جدول، دکمه چاپ و دانلود PDF', async () => {
+  await app.navigate('invoices');
+  const page = document.getElementById('page');
+  assert.equal(document.getElementById('page-title').textContent, 'فاکتورها');
+  assert.ok(page.querySelector('#invoices-body table'), 'جدول فاکتورها نیست');
+  const row = page.querySelector('#invoices-body tbody tr');
+  assert.ok(row, 'ردیف فاکتوری وجود ندارد');
+  assert.ok(page.querySelector('[data-print]'), 'دکمه چاپ فاکتور نیست');
+  assert.ok(page.querySelector('[data-pdf]'), 'دکمه دانلود PDF نیست');
+  assert.ok(page.querySelector('[data-view]'), 'دکمه جزئیات نیست');
+  // فیلتر بازه «همه»
+  page.querySelector('#iv-all').click();
+  await new Promise((r) => setTimeout(r, 150));
+  assert.ok(page.querySelector('#invoices-body table'), 'جدول پس از فیلتر همه ناپدید شد');
+});
+
+await test('صفحه مشتریان: مودال تسویه حساب برای بدهکار', async () => {
+  const salesMod = await import('../js/services/salesService.js');
+  // ساخت فروش نسیه‌ای برای مشتری مشخص
+  const creditSale = await salesMod.createSale({
+    items: [{ foodId: foodOmelette.id, qty: 2 }],
+    payments: { cash: 0, card: 0, credit: 240000 },
+    customer: { name: 'مشتری نسیه‌ای تست', phone: '09127778899' },
+  });
+  assert.equal(U.num(creditSale.sale.creditRemaining, 0), 240000);
+
+  await app.navigate('customers');
+  const page = document.getElementById('page');
+  assert.equal(document.getElementById('page-title').textContent, 'مشتریان');
+  assert.ok(page.querySelector('#customers-body table'), 'جدول مشتریان نیست');
+  const settleBtn = page.querySelector('[data-settle]');
+  assert.ok(settleBtn, 'دکمه تسویه حساب برای بدهکار نیست');
+  settleBtn.click();
+  const modal = document.querySelector('.modal-backdrop');
+  assert.ok(modal, 'مودال تسویه باز نشد');
+  assert.ok(modal.textContent.includes('طلب باقی‌مانده'), 'طلب نمایش داده نشد');
+  assert.ok(modal.querySelector('[data-full]'), 'دکمه صفر کردن حساب نیست');
+  modal.querySelector('[data-cancel]').click();
+  assert.ok(!document.querySelector('.modal-backdrop'), 'مودال بسته نشد');
+});
+
+await test('تسویه کامل حساب مشتری → صفر شدن طلب', async () => {
+  const salesMod = await import('../js/services/salesService.js');
+  const before = (await salesMod.outstandingCredits()).total;
+  const customers = await salesMod.listCustomers();
+  const c = customers.find((x) => x.phone === '09127778899');
+  assert.ok(c, 'مشتری نسیه‌ای یافت نشد');
+  assert.equal(c.credit, 240000);
+
+  // پرداخت بیشتر از طلب رد می‌شود
+  await assert.rejects(() => salesMod.settleCustomer({ key: c.key, amount: 250000 }), /بیشتر است/);
+
+  const { cashBalance } = await import('../js/services/cashService.js');
+  const balBefore = await cashBalance();
+  const r = await salesMod.settleCustomer({ key: c.key, amount: 240000 });
+  assert.equal(r.cleared, true, 'حساب باید صفر شود');
+  assert.equal(r.paid, 240000);
+
+  const after = (await salesMod.listCustomers()).find((x) => x.key === c.key);
+  assert.equal(after.credit, 0, 'طلب باقی‌مانده صفر نشد');
+  const out = await salesMod.outstandingCredits();
+  assert.equal(out.total, before - 240000, 'جمع طلب کل کاهش نیافت');
+  assert.ok(!out.sales.some((s) => s.id === c.sales[c.sales.length - 1].id), 'سند تسویه‌شده هنوز در طلب‌هاست');
+  // واریز کامل به صندوق
+  assert.equal(await cashBalance(), balBefore + 240000, 'مبلغ تسویه وارد صندوق نشد');
+});
+
+await test('قالب روتین ماهانه: قانون روز + ویرایش قالب', async () => {
+  const exp = await import('../js/services/expenseService.js');
+  const today = U.todayJalali();
+  const day = Number(today.slice(8, 10));
+  const mk = U.monthKey(today);
+
+  const tplNow = await exp.addTemplate({ category: 'تست روتین امروز', amount: 2000, day, source: 'cash' });
+  const tplFuture = await exp.addTemplate({ category: 'تست روتین آینده', amount: 1000, day: day === 31 ? 31 : day + 1, source: 'cash' });
+
+  const r = await exp.generateRecurring(mk);
+  const createdNow = r.created.find((x) => x.recurringId === tplNow.id);
+  assert.ok(createdNow, 'سند روتینِ روز جاری ساخته نشد');
+  assert.equal(createdNow.date, today, 'تاریخ سند باید روز تعیین‌شده باشد');
+  if (day !== 31) {
+    assert.ok(!r.created.some((x) => x.recurringId === tplFuture.id), 'سند روز آینده نباید زودتر ثبت شود');
+  }
+  // اجرای دوباره بدون دوباره‌سازی (کلید یکتا)
+  const r2 = await exp.generateRecurring(mk);
+  assert.ok(!r2.created.some((x) => x.recurringId === tplNow.id), 'سند تکراری ساخته شد');
+
+  // ویرایش قالب
+  const up = await exp.updateTemplate(tplNow.id, { amount: 2500, category: 'تست روتین ویرایش‌شده', day });
+  assert.equal(up.amount, 2500);
+  const tpls = await exp.listTemplates();
+  assert.equal(tpls.find((t) => t.id === tplNow.id).category, 'تست روتین ویرایش‌شده');
+
+  // پاک‌سازی
+  await exp.deleteExpense(createdNow.id);
+  await exp.deleteTemplate(tplNow.id);
+  await exp.deleteTemplate(tplFuture.id);
+});
+
+await test('سند گزارش PDF تمیز: صفحه سفید، متن مشکی، جدول اختصاصی', async () => {
+  const { buildReportDocument } = await import('../js/core/exporters.js');
+  const doc = buildReportDocument({
+    title: 'گزارش آزمایشی', brand: 'صبحانه‌سرای آفتاب', range: '۱ تا ۲',
+    blocks: [
+      { type: 'kpis', items: [{ label: 'درآمد', value: '۱۰۰ تومان' }] },
+      { type: 'table', title: 'جدول تست', columns: [{ label: 'شرح' }, { label: 'مبلغ', align: 'num' }], rows: [['ردیف ۱', '۵۰']], totals: ['جمع', '۵۰'] },
+      { type: 'note', text: 'یادداشت تست' },
+    ],
+  });
+  try {
+    const cs = getComputedStyle(doc);
+    assert.equal(cs.backgroundColor, 'rgb(255, 255, 255)', 'پس‌زمینه سفید نیست');
+    assert.equal(cs.color, 'rgb(17, 17, 17)', 'متن مشکی نیست');
+    assert.ok(doc.textContent.includes('گزارش آزمایشی'), 'عنوان گزارش نیست');
+    assert.ok(doc.textContent.includes('جدول تست'), 'عنوان جدول نیست');
+    assert.ok(doc.textContent.includes('ردیف ۱'), 'ردیف جدول نیست');
+    assert.ok(doc.textContent.includes('یادداشت تست'), 'یادداشت نیست');
+    assert.ok(doc.querySelectorAll('table').length >= 2, 'جدول kpis و جدول داده لازم است');
+    const td = doc.querySelector('tbody td');
+    assert.equal(getComputedStyle(td).color, 'rgb(17, 17, 17)', 'سلول‌ها مشکی نیستند');
+    assert.equal(doc.querySelector('canvas'), null, 'سند نباید اسکرین‌شات/نمودار باشد');
+  } finally { doc.remove(); }
+});
+
+await test('چاپ فاکتور بدون به‌جاماندن المان در صفحه', async () => {
+  const { printReceipt, buildReceiptElement } = await import('../js/core/receipt.js');
+  const salesMod = await import('../js/services/salesService.js');
+  const list = await salesMod.listSales({});
+  const origPrint = window.print;
+  window.print = () => {}; // jsdom پنجره چاپ ندارد
+  try {
+    printReceipt(list[0]);
+  } finally {
+    window.print = origPrint;
+  }
+  assert.equal(document.getElementById('print-root'), null, 'المان چاپ بعد از print پاک نشد');
+  const el = buildReceiptElement(list[0]);
+  assert.ok(el.querySelector('img'), 'لوگو در فاکتور نیست');
+  el.remove();
+});
+
+await test('لوگوی سفارشی از تنظیمات روی فاکتور اعمال می‌شود', async () => {
+  const { saveSettings } = await import('../js/core/settings.js');
+  const { buildReceiptElement } = await import('../js/core/receipt.js');
+  const salesMod = await import('../js/services/salesService.js');
+  saveSettings({ restaurantLogo: 'data:image/jpeg;base64,/9j/testlogo' });
+  try {
+    const list = await salesMod.listSales({});
+    const el = buildReceiptElement(list[0]);
+    assert.ok(el.querySelector('img').getAttribute('src').startsWith('data:image/jpeg'), 'لوگوی سفارشی اعمال نشد');
+    el.remove();
+  } finally {
+    saveSettings({ restaurantLogo: null });
+  }
+});
+
+await test('تب «سود هر پرس و سود خالص» در بخش هزینه‌ها', async () => {
+  await app.navigate('expenses');
+  const page = document.getElementById('page');
+  const tabBtn = page.querySelector('[data-tab="profit"]');
+  assert.ok(tabBtn, 'تب سود هر پرس نیست');
+  tabBtn.click();
+  await new Promise((r) => setTimeout(r, 400));
+  const body = document.getElementById('tab-body');
+  assert.ok(body.textContent.includes('سود خالص ماه جاری'), 'KPI سود خالص نمایش داده نشد');
+  assert.ok(body.textContent.includes('سود و زیان هر پرس غذا'), 'عنوان جدول سود هر پرس نیست');
+  assert.ok(body.querySelector('table'), 'جدول سود هر پرس ساخته نشد');
+  assert.ok(body.querySelectorAll('tbody tr').length > 0, 'هیچ غذایی در جدول سود نیست');
+  // بازگشت به تب اسناد
+  page.querySelector('[data-tab="list"]').click();
+  await new Promise((r) => setTimeout(r, 100));
+  assert.ok(document.getElementById('tab-body').textContent.includes('دسته'), 'بازگشت به تب اسناد ناموفق بود');
 });
 
 /* ============================================================ */

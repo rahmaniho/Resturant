@@ -8,6 +8,7 @@ export const DEFAULT_SETTINGS = {
   restaurantName: 'صبحانه‌سرای آفتاب',
   restaurantPhone: '', // تلفن چاپ‌شونده روی فاکتور
   restaurantAddress: '', // نشانی چاپ‌شونده روی فاکتور
+  restaurantLogo: null, // dataURL لوگو (چاپ فاکتور و سربرگ گزارش‌ها)
   theme: 'light', // light | dark
   initialCash: 0, // موجودی ابتدای صندوق (تومان)
   expenseCategories: ['اجاره', 'حقوق', 'قبوض', 'حمل‌ونقل', 'تعمیرات', 'لوازم آشپزخانه', 'بهداشتی', 'متفرقه'],

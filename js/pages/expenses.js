@@ -4,14 +4,16 @@
 
 import {
   listExpenses, addExpense, updateExpense, deleteExpense,
-  listTemplates, addTemplate, deleteTemplate, generateRecurring,
+  listTemplates, addTemplate, updateTemplate, deleteTemplate, generateRecurring,
 } from '../services/expenseService.js';
+import { menuCosts } from '../services/recipeService.js';
+import { profitLoss } from '../services/reportService.js';
 import { getSettings, saveSettings } from '../core/settings.js';
 import {
   icon, toast, confirmDialog, buildTable, emptyState, openModal,
   fieldText, fieldNum, fieldTextarea, fieldSelect, fieldDate,
 } from '../ui/components.js';
-import { fmtMoney, toFa, escapeHtml, num, todayJalali, monthKey } from '../core/utils.js';
+import { fmtMoney, fmtPercent, toFa, escapeHtml, num, todayJalali, monthKey, currentJalaliMonth } from '../core/utils.js';
 
 export const path = 'expenses';
 export const title = 'هزینه‌ها';
@@ -37,23 +39,24 @@ export async function render(root) {
       <div class="section-head">
         <h2>هزینه‌ها</h2>
         <div class="spacer"></div>
-        <button class="btn btn-outline" id="btn-tpl" type="button">${icon('refresh')} قالب‌های دوره‌ای</button>
+        <button class="btn btn-outline" id="btn-tpl" type="button">${icon('refresh')} هزینه‌های روتین ماهانه</button>
         <button class="btn btn-primary" id="btn-new" type="button">${icon('plus')} هزینه جدید</button>
       </div>
 
       <div class="kpi-grid">
         <div class="kpi bad"><div class="kpi-label">${icon('expense')} هزینه ماه جاری (${toFa(month.slice(5))})</div><div class="kpi-value">${fmtMoney(monthTotal)}<span class="unit">تومان</span></div></div>
         <div class="kpi"><div class="kpi-label">${icon('box')} تعداد اسناد</div><div class="kpi-value">${toFa(ctx.expenses.length)}</div></div>
-        <div class="kpi gold"><div class="kpi-label">${icon('refresh')} قالب دوره‌ای فعال</div><div class="kpi-value">${toFa(ctx.templates.filter((t) => t.active !== false).length)}</div></div>
+        <div class="kpi gold"><div class="kpi-label">${icon('refresh')} روتین ماهانه فعال</div><div class="kpi-value">${toFa(ctx.templates.filter((t) => t.active !== false).length)}</div></div>
       </div>
 
-      <div class="alert info mb-16">${icon('info')}<div>برای جلوگیری از دوباره‌شماری، هر سند هزینه کلید یکتای خود را دارد؛ هزینه‌های دوره‌ای (اجاره، حقوق و…) حداکثر یک بار برای هر ماه شمسی ایجاد می‌شوند.
+      <div class="alert info mb-16">${icon('info')}<div>هزینه‌های روتین ماهانه (اجاره، شارژ، قبوض ثابت و…) با «روز» تعیین‌شده، <b>در همان روز هر ماه به‌صورت خودکار</b> ثبت می‌شوند و قابل ویرایش‌اند؛ کلید یکتا مانع دوباره‌شماری می‌شود.
         <button class="btn btn-outline btn-sm mr-8" id="btn-gen" type="button" style="margin-right:8px">ایجاد هزینه‌های دوره جاری</button>
       </div></div>
 
       <div class="tabs">
         <button class="tab ${tab === 'list' ? 'active' : ''}" data-tab="list" type="button">${icon('expense')} اسناد هزینه</button>
         <button class="tab ${tab === 'cats' ? 'active' : ''}" data-tab="cats" type="button">${icon('settings')} دسته‌های هزینه</button>
+        <button class="tab ${tab === 'profit' ? 'active' : ''}" data-tab="profit" type="button">${icon('chart')} سود هر پرس و سود خالص</button>
       </div>
 
       <div class="card" id="tab-body"></div>
@@ -81,7 +84,56 @@ export async function render(root) {
 function renderTab() {
   const el = document.getElementById('tab-body');
   if (tab === 'cats') renderCats(el);
+  else if (tab === 'profit') renderProfit(el);
   else renderList(el);
+}
+
+/**
+ * سود هر پرس غذا + سود خالص باقی‌مانده کسب‌وکار
+ * (مواد اولیه با قیمت خرید ثبت، میانگین موزون و کسر خودکار پس از فروش)
+ */
+async function renderProfit(el) {
+  el.innerHTML = '<div class="empty-state"><p>در حال محاسبه سود هر پرس…</p></div>';
+  const m = currentJalaliMonth();
+  const [costs, pnl] = await Promise.all([menuCosts(), profitLoss(m.from, m.to)]);
+  const withRecipe = costs.filter((c) => c.hasRecipe);
+  const avgMargin = withRecipe.length ? withRecipe.reduce((s, c) => s + c.margin, 0) / withRecipe.length : 0;
+
+  el.innerHTML = `
+    <div class="kpi-grid">
+      <div class="kpi ${pnl.profit.net >= 0 ? 'good' : 'bad'}"><div class="kpi-label">${icon('chart')} سود خالص ماه جاری</div><div class="kpi-value">${fmtMoney(pnl.profit.net)}<span class="unit">تومان</span></div><div class="kpi-sub">پس از هزینه‌ها و ضایعات</div></div>
+      <div class="kpi gold"><div class="kpi-label">${icon('cart')} درآمد ماه جاری</div><div class="kpi-value">${fmtMoney(pnl.revenue)}<span class="unit">تومان</span></div><div class="kpi-sub">بهای تمام‌شده: ${fmtMoney(pnl.cogs)}</div></div>
+      <div class="kpi"><div class="kpi-label">${icon('flask')} میانگین حاشیه هر پرس</div><div class="kpi-value">${fmtPercent(avgMargin)}</div><div class="kpi-sub">${toFa(withRecipe.length)} غذا دارای رسپی</div></div>
+    </div>
+
+    <div class="alert info mb-16">${icon('info')}<div>مواد اولیه خریداری‌شده <b>با قیمت سند خرید</b> وارد انبار می‌شوند (میانگین موزون) و به اندازه مصرف رسپی هر غذا، <b>خودکار از موجودی کم</b> می‌شوند؛ سود هر پرس از همین بهاها محاسبه می‌شود. سود خالص نهایی = درآمد − بهای تمام‌شده − ضایعات − هزینه‌ها.</div></div>
+
+    <div class="card-title">سود و زیان هر پرس غذا</div>
+    <div id="plate-table"></div>`;
+
+  const table = buildTable({
+    columns: [
+      { key: 'name', label: 'غذا' },
+      { key: 'categoryName', label: 'دسته' },
+      { key: 'priceText', label: 'قیمت فروش', cls: 'num' },
+      { key: 'costText', label: 'بهای تمام‌شده', cls: 'num' },
+      { key: 'profitText', label: 'سود هر پرس', cls: 'num', render: (r) => (r.hasRecipe ? `<b class="${r.profit >= 0 ? 'text-success' : 'text-danger'}">${fmtMoney(r.profit)}</b>` : '—') },
+      { key: 'marginText', label: 'حاشیه سود', cls: 'num', render: (r) => (r.hasRecipe ? `<b class="${r.margin >= 40 ? 'text-success' : r.margin >= 15 ? 'text-gold' : 'text-danger'}">${fmtPercent(r.margin)}</b>` : '—') },
+    ],
+    rows: costs.map((c) => ({
+      ...c,
+      name: c.food.name,
+      priceText: fmtMoney(c.food.price),
+      costText: c.hasRecipe ? fmtMoney(c.cost) : 'بدون رسپی',
+      profitText: fmtMoney(c.profit),
+      marginText: fmtPercent(c.margin),
+    })),
+    searchKeys: ['name', 'categoryName'],
+    excel: { filename: 'plate-profit', sheetName: 'سود هر پرس' },
+  });
+  const holder = el.querySelector('#plate-table');
+  holder.innerHTML = '';
+  holder.appendChild(table);
 }
 
 function renderList(el) {
@@ -214,22 +266,27 @@ function expenseModal(exp = null) {
 }
 
 function templatesModal() {
+  let editingId = null;
+
   const renderBody = async () => {
     const tpls = await listTemplates();
     const content = document.createElement('div');
     content.innerHTML = `
-      <div class="alert info mb-16">${icon('info')}<div>قالب‌ها هر ماه یک بار به‌صورت خودکار یا با دکمه «ایجاد هزینه‌های دوره جاری» به سند هزینه تبدیل می‌شوند؛ کلید یکتا مانع ثبت تکراری می‌شود.</div></div>
+      <div class="alert info mb-16">${icon('info')}<div>هر قالب (اجاره، شارژ، قبض ثابت و…) در <b>روز تعیین‌شده هر ماه</b> به‌صورت خودکار به سند هزینه تبدیل می‌شود؛ روزهای بیشتر از طول ماه در آخرین روز اعمال می‌شوند. کلید یکتا مانع ثبت تکراری می‌شود. با دکمه ✎ ویرایش کنید.</div></div>
       <div class="table-wrap">
         <table class="data">
-          <thead><tr><th>دسته</th><th class="num">مبلغ</th><th>منبع</th><th class="num">روز</th><th></th></tr></thead>
+          <thead><tr><th>دسته</th><th class="num">مبلغ</th><th>منبع</th><th class="num">روز ماه</th><th></th></tr></thead>
           <tbody>
             ${tpls.length ? tpls.map((t) => `
               <tr>
                 <td>${escapeHtml(t.category)}${t.description ? `<div class="text-sm text-muted">${escapeHtml(t.description)}</div>` : ''}</td>
                 <td class="num">${fmtMoney(t.amount)}</td>
                 <td>${t.source === 'cash' ? 'صندوق' : 'بانک'}</td>
-                <td class="num">${toFa(t.day)}</td>
-                <td class="actions"><button class="btn btn-ghost btn-sm text-danger" data-del-tpl="${t.id}" type="button">${icon('trash')}</button></td>
+                <td class="num">هر ماه ${toFa(t.day)}${editingId === t.id ? ' <span class="badge gold">در حال ویرایش</span>' : ''}</td>
+                <td class="actions">
+                  <button class="btn btn-ghost btn-sm" data-edit-tpl="${t.id}" type="button" title="ویرایش">${icon('edit')}</button>
+                  <button class="btn btn-ghost btn-sm text-danger" data-del-tpl="${t.id}" type="button" title="حذف">${icon('trash')}</button>
+                </td>
               </tr>`).join('') : '<tr><td class="table-empty" colspan="5">قالبی ثبت نشده</td></tr>'}
           </tbody>
         </table>
@@ -238,7 +295,7 @@ function templatesModal() {
         ${fieldText({ id: 't-cat', label: 'دسته', placeholder: 'مثلاً اجاره' })}
         ${fieldNum({ id: 't-amount', label: 'مبلغ ماهانه', placeholder: '0' })}
         ${fieldSelect({ id: 't-source', label: 'منبع', options: [{ value: 'cash', label: 'صندوق' }, { value: 'card', label: 'بانک' }], placeholder: null })}
-        ${fieldNum({ id: 't-day', label: 'روز ماه', value: '1', min: '1' })}
+        ${fieldNum({ id: 't-day', label: 'روز ماه (۱ تا ۳۱)', value: '1', min: '1' })}
       </div>
       <div class="mt-8">${fieldText({ id: 't-desc', label: 'شرح', placeholder: 'اختیاری' })}</div>`;
 
@@ -251,12 +308,26 @@ function templatesModal() {
       templatesModal();
     }));
 
+    content.querySelectorAll('[data-edit-tpl]').forEach((b) => b.addEventListener('click', () => {
+      const t = tpls.find((x) => x.id === b.dataset.editTpl);
+      if (!t) return;
+      editingId = t.id;
+      content.querySelector('#t-cat').value = t.category;
+      content.querySelector('#t-amount').value = String(t.amount);
+      content.querySelector('#t-source').value = t.source;
+      content.querySelector('#t-day').value = String(t.day);
+      content.querySelector('#t-desc').value = t.description || '';
+      modal.foot.querySelector('[data-add]').innerHTML = `${icon('check')} ذخیره ویرایش`;
+      content.querySelector('#t-cat').focus();
+      toast('قالب در حال ویرایش است؛ تغییرات را ذخیره کنید', 'info');
+    }));
+
     return content;
   };
 
   const holder = document.createElement('div');
   const modal = openModal({
-    title: 'قالب هزینه‌های دوره‌ای',
+    title: 'هزینه‌های روتین ماهانه',
     content: holder,
     size: 'wide',
     footer: `<button class="btn btn-primary" data-add type="button">${icon('plus')} افزودن قالب</button><button class="btn btn-ghost" data-close2 type="button">بستن</button>`,
@@ -265,14 +336,20 @@ function templatesModal() {
   modal.foot.querySelector('[data-close2]').addEventListener('click', () => { modal.close(); render(document.getElementById('page')); });
   modal.foot.querySelector('[data-add]').addEventListener('click', async () => {
     try {
-      await addTemplate({
+      const payload = {
         category: holder.querySelector('#t-cat')?.value,
         amount: holder.querySelector('#t-amount')?.value,
         source: holder.querySelector('#t-source')?.value,
         day: holder.querySelector('#t-day')?.value,
         description: holder.querySelector('#t-desc')?.value,
-      });
-      toast('قالب افزوده شد');
+      };
+      if (editingId) {
+        await updateTemplate(editingId, payload);
+        toast('قالب ویرایش شد');
+      } else {
+        await addTemplate(payload);
+        toast('قالب افزوده شد');
+      }
       modal.close();
       templatesModal();
     } catch (e) { toast(e.message, 'error'); }

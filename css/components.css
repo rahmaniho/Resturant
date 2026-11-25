@@ -704,3 +704,21 @@ table.data .row-actions { display: inline-flex; gap: 5px; }
 .hidden { display: none !important; }
 .center { text-align: center; }
 .mw-200 { max-width: 200px; }
+
+/* ---------- چاپ فاکتور (پنجره چاپ مرورگر) ---------- */
+@media print {
+  html, body { background: #fff !important; }
+  body > *:not(#print-root) { display: none !important; }
+  #print-root {
+    position: static !important;
+    right: auto !important;
+    top: auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: #fff !important;
+    box-shadow: none !important;
+  }
+  @page { margin: 12mm; }
+}
