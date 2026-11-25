@@ -4,7 +4,7 @@
 
 import { dashboardData } from '../services/reportService.js';
 import { ICONS, kpiCard, emptyState, icon, toast } from '../ui/components.js';
-import { fmtMoney, fmtToman, fmtDate, fmtDateLong, toFa, weekdayOf, escapeHtml, num } from '../core/utils.js';
+import { fmtMoney, fmtToman, fmtDate, fmtDateLong, fmtDateShort, toFa, weekdayOf, escapeHtml, num } from '../core/utils.js';
 
 export const path = 'dashboard';
 export const title = 'داشبورد';
@@ -124,7 +124,7 @@ function drawCharts(d) {
   new Chart(document.getElementById('ch-sales14'), {
     type: 'bar',
     data: {
-      labels: d.series.map((s) => fmtDate(s.date).slice(5)),
+      labels: d.series.map((s) => fmtDateShort(s.date)),
       datasets: [{
         label: 'فروش (تومان)',
         data: d.series.map((s) => s.revenue),

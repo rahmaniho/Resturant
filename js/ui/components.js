@@ -2,7 +2,7 @@
    اجزای مشترک UI — توست، مودال، تأیید، جدول‌ها، آیکون‌ها
    ============================================================ */
 
-import { escapeHtml, toFa, debounce, normalize, toEn, formatNumInput } from '../core/utils.js';
+import { escapeHtml, toFa, debounce, normalize, toEn, formatNumInput, todayJalali, daysInMonth, MONTHS } from '../core/utils.js';
 
 /* ---------- آیکون‌ها (SVG) ---------- */
 export const ICONS = {
@@ -109,7 +109,7 @@ export function openModal({ title, content, footer, size = '', onClose }) {
   });
   const api = { close, body, foot, el: backdrop };
   modalStack.push(api);
-  setTimeout(() => body.querySelector('input,select,textarea,button')?.focus(), 50);
+  setTimeout(() => body.querySelector('input:not([type="hidden"]),select,textarea,button')?.focus(), 50);
   return api;
 }
 
@@ -302,12 +302,95 @@ export function fieldTextarea({ id, label, value = '', placeholder = '', rows = 
     </div>`;
 }
 
+/* ---------- انتخابگر تاریخ شمسی سه‌ستونی: روز | ماه | سال ----------
+   نمایش: «۳ آذر ۱۴۰۵» — مقدار پنهان همیشه 'YYYY-MM-DD' لاتین است
+   تا خواندن‌های قبلی (toEn روی #id) بدون تغییر کار کنند. */
+const DP_YEAR_FROM = 1390;
+const DP_YEAR_TO = 1420;
+
+function dpDayOptions(jy, jm, selected) {
+  const max = daysInMonth(jy, jm);
+  let out = '<option value="">—</option>';
+  for (let d = 1; d <= max; d += 1) {
+    out += `<option value="${d}"${d === selected ? ' selected' : ''}>${toFa(d)}</option>`;
+  }
+  return out;
+}
+
+function dpMonthOptions(selected) {
+  return MONTHS.map((mn, i) => `<option value="${i + 1}"${i + 1 === selected ? ' selected' : ''}>${mn}</option>`).join('');
+}
+
+function dpYearOptions(selected) {
+  const years = [];
+  for (let y = DP_YEAR_FROM; y <= DP_YEAR_TO; y += 1) years.push(y);
+  if (selected && (selected < DP_YEAR_FROM || selected > DP_YEAR_TO)) years.push(selected);
+  years.sort((a, b) => a - b);
+  return years.map((y) => `<option value="${y}"${y === selected ? ' selected' : ''}>${toFa(y)}</option>`).join('');
+}
+
+/** HTML انتخابگر تاریخ: ورودی پنهان با id داده‌شده + سه ستون روز/ماه/سال */
+export function datePickerHTML(id, value, { style = '' } = {}) {
+  const valid = /^\d{4}-\d{2}-\d{2}$/.test(value || '');
+  const now = todayJalali().split('-').map(Number);
+  const [vy, vm, vd] = valid ? String(value).split('-').map(Number) : [now[0], now[1], now[2]];
+  const selDay = valid ? Math.min(vd, daysInMonth(vy, vm)) : null; // null → گزینه «—»
+  return `
+    <div class="date-picker" data-date-picker${style ? ` style="${style}"` : ''}>
+      <input type="hidden" id="${id}" data-date value="${valid ? value : ''}" />
+      <select class="input dp-day" id="${id}-day" aria-label="روز">${dpDayOptions(vy, vm, selDay)}</select>
+      <select class="input dp-month" id="${id}-month" aria-label="ماه">${dpMonthOptions(vm)}</select>
+      <select class="input dp-year" id="${id}-year" aria-label="سال">${dpYearOptions(vy)}</select>
+    </div>`;
+}
+
+/** همگام‌سازی ستون‌ها با مقدار پنهان (بعد از مقداردهی برنامه‌ای) */
+export function syncDatePicker(hiddenInput) {
+  const wrap = hiddenInput?.closest?.('[data-date-picker]');
+  if (!wrap) return;
+  const day = wrap.querySelector('.dp-day');
+  const mon = wrap.querySelector('.dp-month');
+  const yr = wrap.querySelector('.dp-year');
+  const v = hiddenInput.value;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) { if (day) day.value = ''; return; }
+  const [y, m, d] = v.split('-').map(Number);
+  if (yr) {
+    if (![...yr.options].some((o) => Number(o.value) === y)) {
+      yr.insertAdjacentHTML('beforeend', `<option value="${y}">${toFa(y)}</option>`);
+    }
+    yr.value = String(y);
+  }
+  if (mon) mon.value = String(m);
+  if (day) {
+    const max = daysInMonth(y, m);
+    if (d > max) {
+      // روز بیشتر از آخر ماه (مثلاً ۳۰ اسفند غیرکبیسه) → به آخر ماه بنشیند
+      day.value = String(max);
+      hiddenInput.value = `${String(y).padStart(4, '0')}-${String(m).padStart(2, '0')}-${String(max).padStart(2, '0')}`;
+    } else {
+      if (![...day.options].some((o) => Number(o.value || 0) === d)) {
+        day.insertAdjacentHTML('beforeend', `<option value="${d}">${toFa(d)}</option>`);
+      }
+      day.value = String(d);
+    }
+  }
+}
+
+/** مقداردهی برنامه‌ای تاریخ (پنهان + ستون‌ها) — به‌جای `.value =` */
+export function setDateValue(root, id, value) {
+  const inp = root.querySelector(`#${id}`);
+  if (!inp) return;
+  const valid = /^\d{4}-\d{2}-\d{2}$/.test(value || '');
+  inp.value = valid ? value : '';
+  syncDatePicker(inp);
+}
+
 export function fieldDate({ id, label, value = '', hint = '' }) {
-  // ورودی تاریخ شمسی به‌صورت متن (ارقام فارسی نمایش داده می‌شود؛ خواندن با toEn)
+  // تاریخ شمسی با سه ستون انتخاب روز/ماه/سال (نمایش «۳ آذر ۱۴۰۵»)
   return `
     <div class="field">
-      <label for="${id}">${escapeHtml(label)}</label>
-      <input class="input" id="${id}" type="text" inputmode="numeric" dir="ltr" placeholder="1405-08-03" value="${escapeHtml(value ? toFa(value) : '')}" data-date />
+      <label for="${id}-day">${escapeHtml(label)}</label>
+      ${datePickerHTML(id, value)}
       ${hint ? `<span class="hint">${escapeHtml(hint)}</span>` : ''}
     </div>`;
 }

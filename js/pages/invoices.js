@@ -5,7 +5,7 @@
 import { listSales } from '../services/salesService.js';
 import { exportReceipt, printReceipt } from '../core/receipt.js';
 import { showSaleDetail } from './sales.js';
-import { icon, toast, buildTable, emptyState } from '../ui/components.js';
+import { icon, toast, buildTable, emptyState, datePickerHTML, setDateValue } from '../ui/components.js';
 import { fmtMoney, fmtDate, toFa, num, todayJalali, addDaysJalali, escapeHtml, toEn } from '../core/utils.js';
 
 export const path = 'invoices';
@@ -26,9 +26,9 @@ export async function render(root) {
       <div class="section-head">
         <h2>فاکتورها</h2>
         <div class="spacer"></div>
-        <input class="input" id="iv-from" dir="ltr" style="width:130px;min-height:38px" value="${toFa(range.from)}" placeholder="1405-01-01" />
+        ${datePickerHTML('iv-from', range.from, { style: 'width:190px' })}
         <span class="text-muted">تا</span>
-        <input class="input" id="iv-to" dir="ltr" style="width:130px;min-height:38px" value="${toFa(range.to)}" placeholder="1405-12-29" />
+        ${datePickerHTML('iv-to', range.to, { style: 'width:190px' })}
         <button class="btn btn-primary btn-sm" id="iv-apply" type="button">نمایش</button>
         <button class="btn btn-outline btn-sm" id="iv-all" type="button">همه</button>
       </div>
@@ -46,7 +46,7 @@ export async function render(root) {
     const from = toEn(root.querySelector('#iv-from').value).trim();
     const to = toEn(root.querySelector('#iv-to').value).trim();
     if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) {
-      toast('تاریخ‌ها را با قالب 1405-08-03 وارد کنید', 'warn'); return;
+      toast('تاریخ‌ها را از ستون‌ها انتخاب کنید', 'warn'); return;
     }
     if (from > to) { toast('تاریخ شروع بعد از پایان است', 'warn'); return; }
     range = { from, to };
@@ -54,8 +54,8 @@ export async function render(root) {
   });
   root.querySelector('#iv-all').addEventListener('click', () => {
     range = { from: '0000-01-01', to: '9999-12-29' };
-    root.querySelector('#iv-from').value = '';
-    root.querySelector('#iv-to').value = '';
+    setDateValue(root, 'iv-from', '');
+    setDateValue(root, 'iv-to', '');
     load();
   });
 

@@ -990,7 +990,82 @@ await test('ورودی‌های عددی و تاریخ با ارقام فارس�
   const n = fieldNum({ id: 't-n', label: 'مبلغ', value: '1234567' });
   assert.ok(n.includes('۱٬۲۳۴٬۵۶۷'), 'مقدار اولیه فارسی با جداکننده نیست');
   const d = fieldDate({ id: 't-d', label: 'تاریخ', value: '1405-09-03' });
-  assert.ok(d.includes('۱۴۰۵-۰۹-۰۳'), 'تاریخ اولیه فارسی نیست');
+  assert.ok(d.includes('data-date-picker'), 'انتخابگر سه‌ستونی نیست');
+  assert.ok(d.includes('آذر'), 'ستون ماه به نام فارسی نیست');
+  assert.ok(d.includes('۱۴۰۵'), 'ستون سال فارسی نیست');
+  assert.ok(d.includes('value="1405-09-03"'), 'مقدار پنهان انگلیسی نیست');
+  // مقدار خالی (اختیاری) → گزینه «—»
+  const d2 = fieldDate({ id: 't-d2', label: 'انقضا', value: '' });
+  assert.ok(d2.includes('value=""'), 'تاریخ خالی باید مقدار پنهان خالی داشته باشد');
+  assert.ok(d2.includes('>—<'), 'گزینه «—» برای حالت خالی نیست');
+});
+
+await test('فرمت تقویم: «۳ آذر ۱۴۰۵» در نمایش و برچسب نمودار', () => {
+  assert.equal(U.fmtDate('1405-09-03'), '۳ آذر ۱۴۰۵');
+  assert.equal(U.fmtDateLong('1405-01-01'), '۱ فروردین ۱۴۰۵');
+  assert.equal(U.fmtDateShort('1405-09-03'), '۳ آذر');
+  assert.equal(U.fmtDate(''), '—');
+  // ورودی نامعتبر → مسیر عددی
+  assert.equal(U.fmtDate('1404-13-45'), '۱۴۰۴/۱۳/۴۵');
+});
+
+await test('ستون‌های تاریخ: تغییر روز/ماه/سال مقدار پنهان را می‌سازد', async () => {
+  const { datePickerHTML, setDateValue } = await import('../js/ui/components.js');
+  const box = document.createElement('div');
+  box.innerHTML = datePickerHTML('t-pick', '1405-09-03');
+  document.body.appendChild(box);
+  try {
+    const hidden = box.querySelector('#t-pick');
+    const day = box.querySelector('.dp-day');
+    const mon = box.querySelector('.dp-month');
+    const yr = box.querySelector('.dp-year');
+    assert.equal(hidden.value, '1405-09-03');
+    assert.equal(mon.value, '9', 'ماه آذر انتخاب نشده');
+    assert.equal(day.value, '3');
+    assert.equal(yr.value, '1405');
+
+    // تغییر ماه به دی (۳۱ روز) — روز حفظ می‌شود
+    mon.value = '10';
+    mon.dispatchEvent(new window.Event('change', { bubbles: true }));
+    assert.equal(hidden.value, '1405-10-03', 'ماه در مقدار پنهان اعمال نشد');
+
+    // دی ۳۰ روز دارد (ماه‌های ۷ تا ۱۲) — روز ۳۰ آخرین روز است
+    day.value = '30';
+    day.dispatchEvent(new window.Event('change', { bubbles: true }));
+    assert.equal(hidden.value, '1405-10-30');
+
+    // روز ۳۱ در دی وجود ندارد → انتخاب نامعتبر به آخرین روز ماه می‌چسبد
+    day.value = '31'; // در دی گزینه‌ای ندارد → مقدار خالی می‌شود
+    day.dispatchEvent(new window.Event('change', { bubbles: true }));
+    assert.equal(hidden.value, '', 'روز ناموجود باید مقدار خالی بدهد');
+
+    // اسفند ۱۴۰۴ (غیرکبیسه، ۲۹ روز): مقداردهی برنامه‌ای روز ۳۰ → ۲۹ می‌نشیند
+    setDateValue(box, 't-pick', '1404-12-30');
+    assert.equal(hidden.value, '1404-12-29', `چسبیدن روز به آخر ماه انجام نشد: ${hidden.value}`);
+    assert.equal(box.querySelector('.dp-day').value, '29');
+
+    // فروردین ۳۱ روز دارد
+    setDateValue(box, 't-pick', '1405-01-31');
+    assert.equal(box.querySelector('.dp-day').value, '31');
+    assert.equal(box.querySelector('.dp-month').value, '1');
+
+    // حالت خالی با انتخاب روز پر می‌شود
+    setDateValue(box, 't-pick', '');
+    assert.equal(hidden.value, '');
+    assert.equal(box.querySelector('.dp-day').value, '', 'بعد از خالی کردن روز باید «—» شود');
+    day.value = '5';
+    mon.value = '6';
+    yr.value = '1405';
+    day.dispatchEvent(new window.Event('change', { bubbles: true }));
+    assert.equal(hidden.value, '1405-06-05');
+
+    // مقداردهی برنامه‌ای هم ستون‌ها را همگام می‌کند
+    setDateValue(box, 't-pick', '1405-02-15');
+    assert.equal(hidden.value, '1405-02-15');
+    assert.equal(mon.value, '2');
+    assert.equal(day.value, '15');
+    assert.equal(yr.value, '1405');
+  } finally { box.remove(); }
 });
 
 await test('ثبت هزینه با تاریخ و مبلغ فارسی از مودال', async () => {

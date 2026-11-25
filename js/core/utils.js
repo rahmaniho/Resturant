@@ -183,18 +183,26 @@ export function nowTime(date = new Date()) {
   return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 }
 
-/** نمایش تاریخ شمسی: '۱۴۰۵/۰۸/۰۳' */
+/** نمایش تاریخ شمسی با فرمت استاندارد: '۳ آذر ۱۴۰۵' */
 export function fmtDate(dateStr) {
   if (!dateStr) return '—';
-  return toFa(String(dateStr).replace(/-/g, '/'));
+  const s = String(dateStr);
+  const [jy, jm, jd] = s.split('-').map(Number);
+  if (!isValidJalali(jy, jm, jd)) return toFa(s.replace(/-/g, '/')); // ورودی نامعتبر → مسیر
+  return `${toFa(jd)} ${MONTHS[jm - 1]} ${toFa(jy)}`;
 }
 
-/** نمایش کامل: '۳ آبان ۱۴۰۵' */
+/** هم‌فرمت fmtDate (نام کامل‌تر در سررسیدها) */
 export function fmtDateLong(dateStr) {
+  return fmtDate(dateStr);
+}
+
+/** نمایش کوتاه برای برچسب نمودار: '۳ آذر' */
+export function fmtDateShort(dateStr) {
   if (!dateStr) return '—';
   const [jy, jm, jd] = String(dateStr).split('-').map(Number);
-  if (!isValidJalali(jy, jm, jd)) return fmtDate(dateStr);
-  return `${toFa(jd)} ${MONTHS[jm - 1]} ${toFa(jy)}`;
+  if (!isValidJalali(jy, jm, jd)) return toFa(String(dateStr).replace(/-/g, '/'));
+  return `${toFa(jd)} ${MONTHS[jm - 1]}`;
 }
 
 /** نام روز هفته تاریخ شمسی */

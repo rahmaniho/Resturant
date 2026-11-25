@@ -7,7 +7,7 @@ import { openDB } from './core/db.js';
 import { ensureInitialCash } from './services/cashService.js';
 import { generateRecurring } from './services/expenseService.js';
 import { ICONS, icon, toast, confirmDialog, openModal } from './ui/components.js';
-import { todayJalali, fmtDateLong, weekdayOf, toFa, monthKey, escapeHtml, formatNumInput } from './core/utils.js';
+import { todayJalali, fmtDateLong, weekdayOf, toFa, monthKey, escapeHtml, formatNumInput, daysInMonth } from './core/utils.js';
 
 import * as dashboard from './pages/dashboard.js';
 import * as sales from './pages/sales.js';
@@ -110,6 +110,41 @@ export async function initApp() {
   document.querySelector('.brand-title').textContent = settings.restaurantName;
   document.title = `${settings.restaurantName} — نرم‌افزار مدیریت`;
   syncBrandLogo();
+
+  // انتخابگر تاریخ سه‌ستونی: تغییر روز/ماه/سال ← مقدار پنهان 'YYYY-MM-DD'
+  document.addEventListener('change', (e) => {
+    const t = e.target;
+    if (!t || t.tagName !== 'SELECT' || !t.classList) return;
+    if (!t.classList.contains('dp-day') && !t.classList.contains('dp-month') && !t.classList.contains('dp-year')) return;
+    const wrap = t.closest('[data-date-picker]');
+    const inp = wrap?.querySelector('input[data-date]');
+    if (!inp) return;
+    const daySel = wrap.querySelector('.dp-day');
+    const monSel = wrap.querySelector('.dp-month');
+    const yrSel = wrap.querySelector('.dp-year');
+    if (t !== daySel) {
+      // بازسازی گزینه‌های روز هنگام تغییر ماه/سال (با حفظ روز قبلی تا حد امکان)
+      const y = Number(yrSel.value);
+      const m = Number(monSel.value);
+      const prev = Number(daySel.value) || 0;
+      const max = daysInMonth(y, m);
+      daySel.innerHTML = '<option value="">—</option>' +
+        Array.from({ length: max }, (_, i) => `<option value="${i + 1}">${toFa(i + 1)}</option>`).join('');
+      if (prev > 0) daySel.value = String(Math.min(prev, max));
+    }
+    const d = daySel.value;
+    if (!d) {
+      inp.value = '';
+    } else {
+      const y = Number(yrSel.value);
+      const m = Number(monSel.value);
+      const max = daysInMonth(y, m);
+      let dd = Number(d);
+      if (dd > max) { dd = max; daySel.value = String(dd); }
+      inp.value = `${String(y).padStart(4, '0')}-${String(m).padStart(2, '0')}-${String(dd).padStart(2, '0')}`;
+    }
+    try { inp.dispatchEvent(new (inp.ownerDocument.defaultView.Event)('change', { bubbles: true })); } catch { /* noop */ }
+  });
 
   // قالب‌بندی زنده اعداد در همه ورودی‌ها: ارقام فارسی + جداکننده سه‌رقمی
   document.addEventListener('input', (e) => {

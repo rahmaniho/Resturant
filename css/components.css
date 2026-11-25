@@ -722,3 +722,22 @@ table.data .row-actions { display: inline-flex; gap: 5px; }
   }
   @page { margin: 12mm; }
 }
+
+/* ---------- انتخابگر تاریخ سه‌ستونی (روز | ماه | سال) ---------- */
+.date-picker {
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+  direction: rtl;
+}
+.date-picker select {
+  flex: 1;
+  min-width: 0;
+  min-height: 40px;
+  padding: 6px 8px;
+  cursor: pointer;
+}
+.date-picker .dp-day { flex: 0 0 72px; text-align: center; }
+.date-picker .dp-month { flex: 1.5; }
+.date-picker .dp-year { flex: 1; text-align: center; }
+.date-picker input[type='hidden'] { display: none; }

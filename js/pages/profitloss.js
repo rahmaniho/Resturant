@@ -4,7 +4,7 @@
 
 import { profitLoss, compareWithPrevious } from '../services/reportService.js';
 import { getSettings } from '../core/settings.js';
-import { icon, toast, fieldDate, emptyState, buildTable } from '../ui/components.js';
+import { icon, toast, datePickerHTML, setDateValue, emptyState, buildTable } from '../ui/components.js';
 import { fmtMoney, fmtPercent, fmtDate, toFa, escapeHtml, todayJalali, currentJalaliMonth, downloadBlob, toEn, addDaysJalali, daysInMonth } from '../core/utils.js';
 
 export const path = 'profitloss';
@@ -23,9 +23,9 @@ export async function render(root) {
         <h2>گزارش سود و زیان</h2>
         <div class="spacer"></div>
         <div class="flex" style="gap:8px;flex-wrap:wrap">
-          <input class="input" id="r-from" dir="ltr" style="width:130px;min-height:38px" value="${toFa(range.from)}" placeholder="1405-01-01" />
+          ${datePickerHTML('r-from', range.from, { style: 'width:190px' })}
           <span class="text-muted">تا</span>
-          <input class="input" id="r-to" dir="ltr" style="width:130px;min-height:38px" value="${toFa(range.to)}" placeholder="1405-12-29" />
+          ${datePickerHTML('r-to', range.to, { style: 'width:190px' })}
           <button class="btn btn-primary btn-sm" id="r-apply" type="button">نمایش</button>
           <button class="btn btn-outline btn-sm" id="r-month" type="button">ماه جاری</button>
           <button class="btn btn-outline btn-sm" id="r-excel" type="button">${icon('excel')} اکسل</button>
@@ -49,7 +49,7 @@ export async function render(root) {
     const from = toEn(root.querySelector('#r-from').value).trim();
     const to = toEn(root.querySelector('#r-to').value).trim();
     if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) {
-      toast('تاریخ‌ها را با قالب 1405-08-03 وارد کنید', 'warn');
+      toast('تاریخ‌ها را از ستون‌ها انتخاب کنید', 'warn');
       return;
     }
     range = { from, to };
@@ -58,8 +58,8 @@ export async function render(root) {
   root.querySelector('#r-month').addEventListener('click', () => {
     const mm = currentJalaliMonth();
     range = { from: mm.from, to: mm.to };
-    root.querySelector('#r-from').value = toFa(range.from);
-    root.querySelector('#r-to').value = toFa(range.to);
+    setDateValue(root, 'r-from', range.from);
+    setDateValue(root, 'r-to', range.to);
     load();
   });
 
@@ -76,8 +76,8 @@ export async function render(root) {
       const last = daysInMonth(m.jy, 12);
       range = { from: `${m.jy}-01-01`, to: `${m.jy}-12-${String(last).padStart(2, '0')}` };
     }
-    root.querySelector('#r-from').value = toFa(range.from);
-    root.querySelector('#r-to').value = toFa(range.to);
+    setDateValue(root, 'r-from', range.from);
+    setDateValue(root, 'r-to', range.to);
     root.querySelectorAll('[data-preset]').forEach((x) => x.classList.toggle('active', x === b));
     load();
   }));

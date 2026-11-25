@@ -4,7 +4,7 @@
 
 import { dailyReport } from '../services/reportService.js';
 import { getSettings } from '../core/settings.js';
-import { icon, toast, emptyState } from '../ui/components.js';
+import { icon, toast, emptyState, datePickerHTML, setDateValue } from '../ui/components.js';
 import { fmtMoney, fmtDateLong, toFa, escapeHtml, todayJalali, weekdayOf, fmtQty, toEn } from '../core/utils.js';
 
 export const path = 'daily';
@@ -19,7 +19,7 @@ export async function render(root) {
       <div class="section-head">
         <h2>گزارش روزانه</h2>
         <div class="spacer"></div>
-        <input class="input" id="d-date" dir="ltr" style="width:140px;min-height:38px" value="${toFa(date)}" placeholder="1405-08-03" />
+        ${datePickerHTML('d-date', date, { style: 'width:210px' })}
         <button class="btn btn-primary btn-sm" id="d-apply" type="button">نمایش</button>
         <button class="btn btn-outline btn-sm" id="d-today" type="button">امروز</button>
         <button class="btn btn-outline btn-sm" id="d-excel" type="button">${icon('excel')} اکسل</button>
@@ -30,13 +30,13 @@ export async function render(root) {
 
   root.querySelector('#d-apply').addEventListener('click', () => {
     const v = toEn(root.querySelector('#d-date').value).trim();
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) { toast('تاریخ را با قالب 1405-08-03 وارد کنید', 'warn'); return; }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) { toast('تاریخ را از ستون‌ها انتخاب کنید', 'warn'); return; }
     date = v;
     load();
   });
   root.querySelector('#d-today').addEventListener('click', () => {
     date = todayJalali();
-    root.querySelector('#d-date').value = toFa(date);
+    setDateValue(root, 'd-date', date);
     load();
   });
   root.querySelector('#d-excel').addEventListener('click', exportExcel);
