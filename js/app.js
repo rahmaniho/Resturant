@@ -1,5 +1,5 @@
 /* ============================================================
-   صبحانه‌سرای آفتاب — نقطه ورود برنامه (روتر و چیدمان)
+   میزینو | MIZINO — نقطه ورود برنامه (روتر و چیدمان)
    ============================================================ */
 
 import { getSettings, applyTheme, syncBrandLogo } from './core/settings.js';
@@ -109,7 +109,7 @@ export async function initApp() {
   const settings = getSettings();
   applyTheme(settings.theme);
   document.querySelector('.brand-title').textContent = settings.restaurantName;
-  document.title = `${settings.restaurantName} — نرم‌افزار مدیریت`;
+  document.title = `${settings.restaurantName} | میزینو`;
   syncBrandLogo();
 
   // انتخابگر تاریخ سه‌ستونی: تغییر روز/ماه/سال ← مقدار پنهان 'YYYY-MM-DD'
@@ -303,7 +303,7 @@ function openGuide() {
 
   const content = document.createElement('div');
   content.innerHTML = `
-    <div class="alert info mb-16">${icon('info')}<div><b>به نرم‌افزار صبحانه‌سرای آفتاب خوش آمدید.</b> همه داده‌ها روی همین دستگاه ذخیره می‌شوند و برای انتقال بین دستگاه‌ها حتماً پشتیبان بگیرید.</div></div>
+    <div class="alert info mb-16">${icon('info')}<div><b>به میزینو خوش آمدید.</b> همه داده‌ها روی همین دستگاه ذخیره می‌شوند و برای انتقال بین دستگاه‌ها حتماً پشتیبان بگیرید.</div></div>
 
     <div class="card-title">مسیر پیشنهادی راه‌اندازی (یک‌بار)</div>
     <div class="summary-rows mb-16">

@@ -63,7 +63,7 @@ export async function render(root) {
             <div class="field" style="grid-column:1/-1">
               <label>لوگوی مجموعه (چاپ فاکتور و سربرگ گزارش‌ها)</label>
               <div class="flex" style="gap:10px;align-items:center;flex-wrap:wrap">
-                <img id="logo-preview" src="${escapeHtml(s.restaurantLogo || './icons/icon-192.png')}" alt=""
+                <img id="logo-preview" src="${escapeHtml(s.restaurantLogo || './icons/logo.png')}" alt=""
                      style="width:48px;height:48px;border-radius:10px;object-fit:cover;border:1px solid var(--border,#ccc);background:#fff" />
                 <input type="file" id="set-logo" accept="image/*" class="input" style="max-width:250px;padding:7px" />
                 <button class="btn btn-ghost btn-sm" id="logo-clear" type="button">${icon('trash')} حذف لوگو</button>
@@ -133,7 +133,7 @@ export async function render(root) {
     });
     applyTheme(theme);
     document.querySelector('.brand-title').textContent = getSettings().restaurantName;
-    document.title = `${getSettings().restaurantName} — نرم‌افزار مدیریت`;
+    document.title = `${getSettings().restaurantName} | میزینو`;
     syncBrandLogo();
     toast('تنظیمات ذخیره شد');
   });

@@ -1,5 +1,5 @@
 /* ============================================================
-   تست‌های جامع صبحانه‌سرای آفتاب
+   تست‌های جامع میزینو | MIZINO
    اجرا: npm test
    ============================================================ */
 
@@ -838,7 +838,7 @@ await test('فاکتور رسمی با لوگو، تلفن/نشانی و امض�
 
   const el = receipt.buildReceiptElement(list[0]);
   try {
-    assert.ok(el.querySelector('img[src*="icon-192.png"]'), 'لوگوی مجموعه یافت نشد');
+    assert.ok(el.querySelector('img[src*="logo.png"]'), 'لوگوی مجموعه یافت نشد');
     assert.ok(el.textContent.includes('فاکتور فروش رسمی'), 'عنوان رسمی فاکتور نیست');
     assert.ok(el.textContent.includes('021-77550000'), 'تلفن از تنظیمات چاپ نشد');
     assert.ok(el.textContent.includes('خیابان آزادی'), 'نشانی از تنظیمات چاپ نشد');
@@ -1162,7 +1162,7 @@ await test('شماره فاکتور فارسی در رسید + همگام‌سا
   } finally {
     saveSettings({ restaurantLogo: null });
     syncBrandLogo();
-    assert.ok(document.querySelector('.brand-logo').src.includes('icon-192.png'), 'لوگو به پیش‌فرض برنگشت');
+    assert.ok(document.querySelector('.brand-logo').src.includes('logo.png'), 'لوگو به پیش‌فرض برنگشت');
   }
 });
 

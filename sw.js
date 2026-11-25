@@ -54,6 +54,8 @@ const PRECACHE = [
   './fonts/Vazirmatn[wght].woff2',
   './icons/icon-192.png',
   './icons/icon-512.png',
+  './icons/logo.png',
+  './icons/logo-full.png',
 ];
 
 self.addEventListener('install', (event) => {

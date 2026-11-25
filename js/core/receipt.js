@@ -46,7 +46,7 @@ export function printReceipt(sale) {
 export function buildReceiptElement(sale) {
   const s = getSettings();
   const brand = s.restaurantName || 'صبحانه‌سرای آفتاب';
-  const logo = s.restaurantLogo || './icons/icon-192.png';
+  const logo = s.restaurantLogo || './icons/logo.png';
   const line = 'border:1px solid #d9d2c2;border-collapse:collapse;width:100%';
   const cell = 'padding:6px 8px;font-size:12.5px';
   const wrap = document.createElement('div');

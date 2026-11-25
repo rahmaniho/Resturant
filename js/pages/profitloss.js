@@ -360,7 +360,7 @@ async function exportPdf() {
       subtitle: 'گزارش رسمی مالی',
       range: `${d.from} تا ${d.to}`,
       brand: s.restaurantName || 'صبحانه‌سرای آفتاب',
-      logo: s.restaurantLogo || './icons/icon-192.png',
+      logo: s.restaurantLogo || './icons/logo.png',
       blocks,
     }, `profit-loss-${d.from}-${d.to}.pdf`);
     toast('PDF ساخته شد');

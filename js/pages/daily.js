@@ -215,7 +215,7 @@ async function exportPdf() {
       subtitle: 'گزارش رسمی یک روز',
       range: fmtDateLong(d.date),
       brand: s.restaurantName || 'صبحانه‌سرای آفتاب',
-      logo: s.restaurantLogo || './icons/icon-192.png',
+      logo: s.restaurantLogo || './icons/logo.png',
       blocks,
     }, `daily-${d.date}.pdf`);
     toast('PDF ساخته شد');

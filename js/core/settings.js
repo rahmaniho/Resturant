@@ -54,7 +54,7 @@ export function syncBrandLogo() {
   const el = document.querySelector('.brand-logo');
   if (!el) return;
   const logo = getSettings().restaurantLogo;
-  el.src = logo || './icons/icon-192.png';
+  el.src = logo || './icons/logo.png';
 }
 
 export function applyTheme(theme) {

@@ -91,7 +91,7 @@ export async function exportElementPdf(element, filename, opts = {}) {
  */
 export function buildReportDocument(cfg) {
   const brand = cfg.brand || 'صبحانه‌سرای آفتاب';
-  const logo = cfg.logo || './icons/icon-192.png';
+  const logo = cfg.logo || './icons/logo.png';
   const wrap = document.createElement('div');
   wrap.className = 'report-doc';
   wrap.style.cssText = 'background:#fff;color:#111;font-family:Vazirmatn,Tahoma,sans-serif';
@@ -145,7 +145,7 @@ export function buildReportDocument(cfg) {
     <div style="font-size:19px;font-weight:800;color:#000;margin:14px 0 4px;text-align:center">${escapeHtml(cfg.title || '')}</div>
     ${(cfg.blocks || []).map(blockHtml).join('')}
     <div style="margin-top:18px;border-top:1px solid #999;padding-top:6px;font-size:10.5px;color:#555;display:flex;justify-content:space-between">
-      <span>${escapeHtml(brand)} — چاپ‌شده از نرم‌افزار مدیریت</span>
+      <span>${escapeHtml(brand)} — چاپ‌شده از میزینو</span>
       <span>تولید: ${escapeHtml(new Date().toLocaleString('fa-IR'))}</span>
     </div>`;
   return wrap;
@@ -188,7 +188,7 @@ export function buildPdfSheet(cfg) {
         <h3 style="font-size:20px;color:#0f3d2e">${escapeHtml(cfg.title)}</h3>
         <div style="font-size:12px;color:#666">${escapeHtml(cfg.subtitle || '')}</div>
       </div>
-      <div style="font-size:11px;color:#888;text-align:left">صبحانه‌سرای آفتاب<br/>${toFa(new Date().toLocaleDateString('fa-IR'))}</div>
+      <div style="font-size:11px;color:#888;text-align:left">${escapeHtml(brand)}<br/>${toFa(new Date().toLocaleDateString('fa-IR'))}</div>
     </div>
     <table class="data" style="min-width:0">
       <thead><tr>${cfg.head.map((h) => `<th>${escapeHtml(h)}</th>`).join('')}</tr></thead>

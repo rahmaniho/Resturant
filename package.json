@@ -1,7 +1,7 @@
 {
   "name": "aftab-breakfast-management",
   "version": "1.0.0",
-  "description": "نرم‌افزار مدیریت صبحانه‌سرای آفتاب — وب‌اپلیکیشن استاتیک (Static Web App)",
+  "description": "میزینو | MIZINO — نرم‌افزار مدیریت رستوران، وب‌اپلیکیشن استاتیک (Static Web App)",
   "type": "module",
   "private": true,
   "scripts": {
