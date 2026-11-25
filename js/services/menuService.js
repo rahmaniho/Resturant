@@ -146,7 +146,7 @@ export const SUGGESTED_MENU = [
 ];
 
 /* ---------- تصاویر منو: نام غذا → فایل تصویر ----------
-   هر ۷۰ قلم منو عکس واقعی (jpg فشرده‌شده) دارد.
+   هر ۹۹ قلم منو عکس واقعی (jpg فشرده‌شده) دارد.
    مسیرهای نسبی‌اند تا آفلاین و در GitHub Pages هم کار کنند. */
 export const MENU_IMAGES = {
   "چای": "tea.jpg",
@@ -234,20 +234,20 @@ export const MENU_IMAGES = {
   "کباب چنجه": "kebab-chenje.jpg",
   "چلوکباب": "chelow-kebab.jpg",
   "زرشک پلو": "zereshk-polo.jpg",
-  "باقالی پلو": "ph/baghali-polo.svg",
+  "باقالی پلو": "baghali-polo.jpg",
   "ته‌چین": "tahchin.jpg",
-  "چلو ساده": "ph/chelow-sade.svg",
+  "چلو ساده": "chelow-sade.jpg",
   "باقلوا": "baklava.jpg",
-  "کوکی شکلاتی": "ph/choc-cookie.svg",
-  "دونات": "ph/donut.svg",
-  "کرم کارامل": "ph/creme-caramel.svg",
+  "کوکی شکلاتی": "choc-cookie.jpg",
+  "دونات": "donut.jpg",
+  "کرم کارامل": "creme-caramel.jpg",
   "فرنی": "fereni.jpg",
-  "خاچاپوری": "ph/khachapuri.svg",
-  "پیتزا سبزیجات": "ph/pizza-veggie.svg",
+  "خاچاپوری": "khachapuri.jpg",
+  "پیتزا سبزیجات": "pizza-veggie.jpg",
   "پیتزا پپرونی": "pizza-pepperoni.jpg",
   "هات‌داگ": "hotdog.jpg",
-  "خورش کرفس": "ph/khorsh-karafs.svg",
-  "خورش بامیه": "ph/khorsh-bamieh.svg",
+  "خورش کرفس": "khorsh-karafs.jpg",
+  "خورش بامیه": "khorsh-bamieh.jpg",
 };
 
 /** مسیر تصویر پیشنهادی برای یک نام غذا (در صورت نبود، null) */
