@@ -140,7 +140,7 @@ export const SUGGESTED_MENU = [
 ];
 
 /* ---------- تصاویر منو: نام غذا → فایل تصویر ----------
-   عکس‌های واقعی (jpg) به‌تدریج جایگزین تصاویر طراحی‌شده (ph/*.svg) می‌شوند.
+   هر ۷۰ قلم منو عکس واقعی (jpg فشرده‌شده) دارد.
    مسیرهای نسبی‌اند تا آفلاین و در GitHub Pages هم کار کنند. */
 export const MENU_IMAGES = {
   "چای": "tea.jpg",
@@ -158,18 +158,18 @@ export const MENU_IMAGES = {
   "املت گوجه": "omelette-tomato.jpg",
   "املت گوجه و پنیر": "omelette-tomato-cheese.jpg",
   "املت پنیر": "omelette-cheese.jpg",
-  "املت گردو": "ph/omelette-walnut.svg",
-  "املت سبزیجات": "ph/omelette-veggie.svg",
-  "املت قارچ": "ph/omelette-mushroom.svg",
+  "املت گردو": "omelette-walnut.jpg",
+  "املت سبزیجات": "omelette-veggie.jpg",
+  "املت قارچ": "omelette-mushroom.jpg",
   "نیمرو ساده": "sunny-egg-plain.jpg",
   "نیمرو زرده": "sunny-egg-yolk.jpg",
   "نیمرو با پنیر": "sunny-egg-cheese.jpg",
   "نیمرو با گردو": "sunny-egg-walnut.jpg",
   "پنیر و سبزی": "cheese-herbs.jpg",
-  "گردو و پنیر": "ph/walnut-cheese.svg",
+  "گردو و پنیر": "walnut-cheese.jpg",
   "مربا و کره": "jam-butter.jpg",
   "عسل و خامه": "honey-cream.jpg",
-  "کره و پنیر": "ph/butter-cheese.svg",
+  "کره و پنیر": "butter-cheese.jpg",
   "عدسی ساده": "adasi.jpg",
   "عدسی با ترشی": "adasi-pickles.jpg",
   "عدسی و نان تازه": "adasi-nan.jpg",
@@ -208,11 +208,11 @@ export const MENU_IMAGES = {
   "چیز برگر": "cheeseburger.jpg",
   "سیب‌زمینی سرخ‌کرده": "fries.jpg",
   "سیب‌زمینی با پنیر": "fries-cheese.jpg",
-  "کباب": "ph/kebab.svg",
-  "جوجه‌کباب": "ph/jujeh-kebab.svg",
-  "خورش قیمه": "ph/gheimeh.svg",
-  "خورش قورمه‌سبزی": "ph/ghormeh-sabzi.svg",
-  "پلو مخلوط": "ph/polo-mix.svg",
+  "کباب": "kebab.jpg",
+  "جوجه‌کباب": "jujeh-kebab.jpg",
+  "خورش قیمه": "gheimeh.jpg",
+  "خورش قورمه‌سبزی": "ghormeh-sabzi.jpg",
+  "پلو مخلوط": "polo-mix.jpg",
 };
 
 /** مسیر تصویر پیشنهادی برای یک نام غذا (در صورت نبود، null) */
