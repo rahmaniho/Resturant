@@ -11,7 +11,7 @@ import {
   icon, toast, confirmDialog, buildTable, emptyState, openModal,
   fieldText, fieldNum, fieldTextarea, fieldSelect, fieldDate,
 } from '../ui/components.js';
-import { fmtMoney, fmtQty, fmtPercent, toFa, escapeHtml, num, fmtDate } from '../core/utils.js';
+import { fmtMoney, fmtQty, fmtPercent, toFa, toEn, escapeHtml, num, fmtDate } from '../core/utils.js';
 import { stockValue } from '../core/money.js';
 
 export const path = 'ingredients';
@@ -174,7 +174,7 @@ function modal(ing = null) {
       name: content.querySelector('#i-name').value,
       baseUnit: content.querySelector('#i-base').value,
       minStock: content.querySelector('#i-min').value,
-      expiryDate: content.querySelector('#i-exp').value.trim() || null,
+      expiryDate: toEn(content.querySelector('#i-exp').value).trim() || null,
       units: customUnits,
       notes: content.querySelector('#i-notes').value,
     };

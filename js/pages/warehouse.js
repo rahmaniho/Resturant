@@ -10,7 +10,7 @@ import {
   icon, toast, confirmDialog, buildTable, emptyState, openModal,
   fieldText, fieldNum, fieldTextarea, fieldSelect, fieldDate,
 } from '../ui/components.js';
-import { fmtMoney, fmtQty, toFa, escapeHtml, num, todayJalali, fmtDate } from '../core/utils.js';
+import { fmtMoney, fmtQty, toFa, toEn, escapeHtml, num, todayJalali, fmtDate, formatNumInput } from '../core/utils.js';
 import { exportTableExcel } from '../core/exporters.js';
 
 export const path = 'warehouse';
@@ -193,7 +193,7 @@ function ioModal(kind) {
         ingredientId: ingSel.value,
         qty: content.querySelector('#io-qty').value,
         unit: unitSel.value,
-        date: content.querySelector('#io-date').value.trim() || todayJalali(),
+        date: toEn(content.querySelector('#io-date').value).trim() || todayJalali(),
         note: content.querySelector('#io-note').value,
       };
       let r;
@@ -248,7 +248,7 @@ function wasteModal() {
         qty: content.querySelector('#w-qty').value,
         unit: unitSel.value,
         reason: content.querySelector('#w-reason').value,
-        date: content.querySelector('#w-date').value.trim() || todayJalali(),
+        date: toEn(content.querySelector('#w-date').value).trim() || todayJalali(),
       });
       modal.close();
       toast('ضایعات ثبت شد');
@@ -275,7 +275,7 @@ function countModal() {
             <tr>
               <td>${escapeHtml(i.name)} <span class="text-muted text-sm">${escapeHtml(i.baseUnit)}</span></td>
               <td class="num">${fmtQty(i.stock)}</td>
-              <td class="num"><input class="input num" data-count="${i.id}" data-sys="${num(i.stock, 0)}" value="${fmtQty(i.stock).replace(/,/g, '')}" style="min-height:34px;width:110px;padding:4px 8px" inputmode="decimal" /></td>
+              <td class="num"><input class="input num" data-count="${i.id}" data-sys="${num(i.stock, 0)}" value="${formatNumInput(num(i.stock, 0))}" style="min-height:34px;width:110px;padding:4px 8px" inputmode="decimal" /></td>
             </tr>`).join('')}
         </tbody>
       </table>
@@ -300,7 +300,7 @@ function countModal() {
       const ok = await confirmDialog(`${toFa(items.length)} مورد اختلاف اعمال شود؟`, { title: 'اعمال شمارش', confirmText: 'اعمال' });
       if (!ok) return;
       await applyCount({
-        date: content.querySelector('#c-date').value.trim() || todayJalali(),
+        date: toEn(content.querySelector('#c-date').value).trim() || todayJalali(),
         note: content.querySelector('#c-note').value,
         items,
       });

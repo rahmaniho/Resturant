@@ -9,7 +9,7 @@ import {
   icon, toast, confirmDialog, buildTable, emptyState, openModal,
   fieldText, fieldNum, fieldTextarea, fieldDate,
 } from '../ui/components.js';
-import { fmtMoney, toFa, escapeHtml, num, todayJalali, monthKey } from '../core/utils.js';
+import { fmtMoney, toFa, toEn, escapeHtml, num, todayJalali, monthKey } from '../core/utils.js';
 
 export const path = 'personnel';
 export const title = 'مدیریت پرسنل';
@@ -166,7 +166,7 @@ function payModal(st) {
       await paySalary({
         staffId: st.id,
         amount: content.querySelector('#sp-amount').value,
-        date: content.querySelector('#sp-date').value.trim() || todayJalali(),
+        date: toEn(content.querySelector('#sp-date').value).trim() || todayJalali(),
       });
       modalApi.close();
       toast('حقوق پرداخت شد و از صندوق کسر گردید');

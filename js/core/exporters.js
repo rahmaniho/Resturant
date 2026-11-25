@@ -139,7 +139,7 @@ export function buildReportDocument(cfg) {
       </div>
       <div style="text-align:left;font-size:11px;color:#444">
         ${cfg.range ? `<div>${escapeHtml(cfg.range)}</div>` : ''}
-        <div dir="ltr">${escapeHtml(new Date().toLocaleDateString('fa-IR'))}</div>
+        <div>${escapeHtml(new Date().toLocaleDateString('fa-IR'))}</div>
       </div>
     </div>
     <div style="font-size:19px;font-weight:800;color:#000;margin:14px 0 4px;text-align:center">${escapeHtml(cfg.title || '')}</div>

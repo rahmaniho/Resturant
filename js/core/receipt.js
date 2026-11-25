@@ -67,7 +67,7 @@ export function buildReceiptElement(sale) {
       <tbody>
         <tr>
           <td style="${cell};background:#f7f4ec;width:33%"><b>شماره فاکتور</b></td>
-          <td style="${cell}" dir="ltr">${escapeHtml(sale.id.slice(-8))}</td>
+          <td style="${cell}">${toFa(sale.id.slice(-8))}</td>
           <td style="${cell};background:#f7f4ec;width:26%"><b>تاریخ صدور</b></td>
           <td style="${cell}">${fmtDateLong(sale.date)} (${weekdayOf(sale.date)})</td>
         </tr>
@@ -129,7 +129,7 @@ export function buildReceiptElement(sale) {
 
     <div style="text-align:center;margin-top:14px;font-size:11.5px;color:#666;border-top:1px solid #eee;padding-top:10px">
       از خرید شما سپاسگزاریم ✿<br/>
-      <span dir="ltr" style="font-size:10.5px;color:#999">سند ${escapeHtml(sale.id)} — ${escapeHtml(brand)}</span>
+      <span style="font-size:10.5px;color:#999">سند ${toFa(sale.id)} — ${escapeHtml(brand)}</span>
     </div>`;
   return wrap;
 }

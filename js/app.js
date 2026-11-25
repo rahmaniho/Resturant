@@ -2,12 +2,12 @@
    صبحانه‌سرای آفتاب — نقطه ورود برنامه (روتر و چیدمان)
    ============================================================ */
 
-import { getSettings, applyTheme } from './core/settings.js';
+import { getSettings, applyTheme, syncBrandLogo } from './core/settings.js';
 import { openDB } from './core/db.js';
 import { ensureInitialCash } from './services/cashService.js';
 import { generateRecurring } from './services/expenseService.js';
 import { ICONS, icon, toast, confirmDialog, openModal } from './ui/components.js';
-import { todayJalali, fmtDateLong, weekdayOf, toFa, monthKey, escapeHtml } from './core/utils.js';
+import { todayJalali, fmtDateLong, weekdayOf, toFa, monthKey, escapeHtml, formatNumInput } from './core/utils.js';
 
 import * as dashboard from './pages/dashboard.js';
 import * as sales from './pages/sales.js';
@@ -109,6 +109,23 @@ export async function initApp() {
   applyTheme(settings.theme);
   document.querySelector('.brand-title').textContent = settings.restaurantName;
   document.title = `${settings.restaurantName} — نرم‌افزار مدیریت`;
+  syncBrandLogo();
+
+  // قالب‌بندی زنده اعداد در همه ورودی‌ها: ارقام فارسی + جداکننده سه‌رقمی
+  document.addEventListener('input', (e) => {
+    const el = e.target;
+    if (!el || el.tagName !== 'INPUT' || !el.classList || !el.classList.contains('num')) return;
+    const old = el.value;
+    const formatted = formatNumInput(old);
+    if (formatted === old) return;
+    const start = el.selectionStart;
+    const delta = formatted.length - old.length;
+    el.value = formatted;
+    if (start != null) {
+      const pos = Math.max(0, Math.min(formatted.length, start + delta));
+      try { el.setSelectionRange(pos, pos); } catch { /* noop */ }
+    }
+  });
 
   // پایگاه داده
   try {

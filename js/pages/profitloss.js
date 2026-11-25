@@ -23,9 +23,9 @@ export async function render(root) {
         <h2>گزارش سود و زیان</h2>
         <div class="spacer"></div>
         <div class="flex" style="gap:8px;flex-wrap:wrap">
-          <input class="input" id="r-from" dir="ltr" style="width:130px;min-height:38px" value="${range.from}" placeholder="1405-01-01" />
+          <input class="input" id="r-from" dir="ltr" style="width:130px;min-height:38px" value="${toFa(range.from)}" placeholder="1405-01-01" />
           <span class="text-muted">تا</span>
-          <input class="input" id="r-to" dir="ltr" style="width:130px;min-height:38px" value="${range.to}" placeholder="1405-12-29" />
+          <input class="input" id="r-to" dir="ltr" style="width:130px;min-height:38px" value="${toFa(range.to)}" placeholder="1405-12-29" />
           <button class="btn btn-primary btn-sm" id="r-apply" type="button">نمایش</button>
           <button class="btn btn-outline btn-sm" id="r-month" type="button">ماه جاری</button>
           <button class="btn btn-outline btn-sm" id="r-excel" type="button">${icon('excel')} اکسل</button>
@@ -58,8 +58,8 @@ export async function render(root) {
   root.querySelector('#r-month').addEventListener('click', () => {
     const mm = currentJalaliMonth();
     range = { from: mm.from, to: mm.to };
-    root.querySelector('#r-from').value = range.from;
-    root.querySelector('#r-to').value = range.to;
+    root.querySelector('#r-from').value = toFa(range.from);
+    root.querySelector('#r-to').value = toFa(range.to);
     load();
   });
 
@@ -76,8 +76,8 @@ export async function render(root) {
       const last = daysInMonth(m.jy, 12);
       range = { from: `${m.jy}-01-01`, to: `${m.jy}-12-${String(last).padStart(2, '0')}` };
     }
-    root.querySelector('#r-from').value = range.from;
-    root.querySelector('#r-to').value = range.to;
+    root.querySelector('#r-from').value = toFa(range.from);
+    root.querySelector('#r-to').value = toFa(range.to);
     root.querySelectorAll('[data-preset]').forEach((x) => x.classList.toggle('active', x === b));
     load();
   }));

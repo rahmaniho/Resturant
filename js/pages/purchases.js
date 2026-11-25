@@ -11,7 +11,7 @@ import {
   icon, toast, confirmDialog, buildTable, emptyState, openModal,
   fieldText, fieldNum, fieldTextarea, fieldSelect, fieldDate,
 } from '../ui/components.js';
-import { fmtMoney, fmtQty, toFa, escapeHtml, num, todayJalali, roundToman } from '../core/utils.js';
+import { fmtMoney, fmtQty, toFa, toEn, escapeHtml, num, todayJalali, roundToman, formatNumInput } from '../core/utils.js';
 
 export const path = 'purchases';
 export const title = 'خرید و تأمین‌کنندگان';
@@ -241,7 +241,7 @@ function payModal(sup) {
       await paySupplier({
         supplierId: sup.id,
         amount: content.querySelector('#p-amount').value || sup.debt,
-        date: content.querySelector('#p-date').value.trim() || todayJalali(),
+        date: toEn(content.querySelector('#p-date').value).trim() || todayJalali(),
         note: content.querySelector('#p-note').value,
       });
       modal.close();
@@ -346,7 +346,7 @@ function purchaseModal() {
       if (!items.length) throw new Error('حداقل یک قلم با مقدار معتبر وارد کنید');
       await createPurchase({
         supplierId: content.querySelector('#pu-sup').value || null,
-        date: content.querySelector('#pu-date').value.trim() || todayJalali(),
+        date: toEn(content.querySelector('#pu-date').value).trim() || todayJalali(),
         items,
         paid: content.querySelector('#pu-paid').value || 0,
         note: content.querySelector('#pu-note').value,

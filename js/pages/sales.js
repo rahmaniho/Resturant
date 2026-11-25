@@ -6,7 +6,7 @@ import { listCategories, listFoods } from '../services/menuService.js';
 import { createSale, listSales, deleteSale, receiveCredit, outstandingCredits } from '../services/salesService.js';
 import { ICONS, icon, toast, confirmDialog, buildTable, emptyState, openModal } from '../ui/components.js';
 import { exportReceipt, printReceipt } from '../core/receipt.js';
-import { fmtMoney, fmtDate, fmtDateLong, toFa, num, normalize, todayJalali, escapeHtml, roundToman } from '../core/utils.js';
+import { fmtMoney, fmtDate, fmtDateLong, toFa, toEn, num, normalize, todayJalali, escapeHtml, roundToman, formatNumInput } from '../core/utils.js';
 
 export const path = 'sales';
 export const title = 'ثبت فروش';
@@ -212,11 +212,11 @@ function receiveModal(sale) {
     <div class="form-grid">
       <div class="field">
         <label for="rc-amount">مبلغ دریافتی (تومان)</label>
-        <input class="input num" id="rc-amount" dir="ltr" inputmode="decimal" value="${remaining}" />
+        <input class="input num" id="rc-amount" dir="ltr" inputmode="decimal" value="${formatNumInput(remaining)}" />
       </div>
       <div class="field">
         <label for="rc-date">تاریخ دریافت</label>
-        <input class="input" id="rc-date" dir="ltr" value="${todayJalali()}" placeholder="1405-08-03" data-date />
+        <input class="input" id="rc-date" dir="ltr" value="${toFa(todayJalali())}" placeholder="1405-08-03" data-date />
       </div>
     </div>
     <div class="mt-8"><input class="input" id="rc-note" placeholder="یادداشت (اختیاری)" /></div>`;
@@ -232,7 +232,7 @@ function receiveModal(sale) {
       const { sale: updated } = await receiveCredit({
         saleId: sale.id,
         amount: content.querySelector('#rc-amount').value,
-        date: content.querySelector('#rc-date').value,
+        date: toEn(content.querySelector('#rc-date').value).trim() || todayJalali(),
         note: content.querySelector('#rc-note').value,
       });
       modal.close();
@@ -361,15 +361,15 @@ function renderCart() {
         <div class="row"><span>جمع کالاها</span><span class="mono-num">${fmtMoney(subtotal)}</span></div>
         <div class="row">
           <span>تخفیف</span>
-          <span><input class="input num" id="discount-input" style="width:110px;min-height:32px;padding:3px 8px;text-align:left" inputmode="decimal" value="${state.discount || ''}" placeholder="0" /></span>
+          <span><input class="input num" id="discount-input" style="width:110px;min-height:32px;padding:3px 8px;text-align:left" inputmode="decimal" value="${state.discount ? formatNumInput(state.discount) : ''}" placeholder="0" /></span>
         </div>
         <div class="row grand"><span>مبلغ قابل پرداخت</span><span class="mono-num">${fmtMoney(total)}</span></div>
       </div>
 
       <div class="pay-grid">
-        <div class="field"><label>نقدی</label><input class="input num" id="pay-cash" inputmode="decimal" value="${p.cash || ''}" placeholder="0" /></div>
-        <div class="field"><label>کارت‌خوان</label><input class="input num" id="pay-card" inputmode="decimal" value="${p.card || ''}" placeholder="0" /></div>
-        <div class="field"><label>نسیه</label><input class="input num" id="pay-credit" inputmode="decimal" value="${p.credit || ''}" placeholder="0" /></div>
+        <div class="field"><label>نقدی</label><input class="input num" id="pay-cash" inputmode="decimal" value="${p.cash ? formatNumInput(p.cash) : ''}" placeholder="0" /></div>
+        <div class="field"><label>کارت‌خوان</label><input class="input num" id="pay-card" inputmode="decimal" value="${p.card ? formatNumInput(p.card) : ''}" placeholder="0" /></div>
+        <div class="field"><label>نسیه</label><input class="input num" id="pay-credit" inputmode="decimal" value="${p.credit ? formatNumInput(p.credit) : ''}" placeholder="0" /></div>
       </div>
       <div class="flex mt-8" style="justify-content:space-between">
         <span class="text-sm ${paySum === total ? 'text-success' : 'text-danger'}">جمع پرداخت: ${fmtMoney(paySum)}</span>
@@ -574,7 +574,7 @@ export function showSaleDetail(s) {
       <button class="btn btn-outline" id="detail-pdf" type="button">${icon('pdf')} خروجی PDF فاکتور</button>
     </div>`;
 
-  const modal = openModal({ title: `جزئیات فروش ${s.id.slice(-6)}`, content, size: 'wide' });
+  const modal = openModal({ title: `جزئیات فروش ${toFa(s.id.slice(-6))}`, content, size: 'wide' });
   modal.body.querySelector('#detail-receive')?.addEventListener('click', () => {
     modal.close();
     receiveModal((state?.sales || []).find((x) => x.id === s.id) || s);

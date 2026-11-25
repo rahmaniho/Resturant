@@ -28,10 +28,31 @@ export function normalize(str) {
     .toLowerCase();
 }
 
-/** عدد از ورودی کاربر (پشتیبانی از ارقام فارسی) */
+/** عدد از ورودی کاربر (پشتیبانی از ارقام فارسی و جداکننده هزارگان «٬» و «,») */
 export function num(value, fallback = 0) {
-  const n = parseFloat(toEn(value));
+  if (typeof value === 'number') return Number.isFinite(value) ? value : fallback;
+  let s = toEn(value);
+  // حذف جداکننده‌های هزارگان (فارسی٬ لاتین، فاصله) + ممیز عربی و علامت منهای بلند
+  s = s.replace(/[,٬\s ]/g, '').replace(/٫/g, '.').replace(/−/g, '-');
+  const n = parseFloat(s);
   return Number.isFinite(n) ? n : fallback;
+}
+
+/**
+ * قالب‌بندی زنده عدد برای ورودی‌ها: ارقام فارسی + جداکننده سه‌رقمی از چپ
+ * نمونه: 1234567 → '۱٬۲۳۴٬۵۶۷' | 12.5 → '۱۲٫۵'
+ */
+export function formatNumInput(value) {
+  if (value == null) return '';
+  let s = toEn(String(value)).replace(/[,٬\s ]/g, '').replace(/٫/g, '.').replace(/−/g, '-');
+  if (s === '' || s === '-' || s === '.') return s === '-' ? '-' : '';
+  let neg = false;
+  if (s.startsWith('-')) { neg = true; s = s.slice(1); }
+  if (!/^\d*\.?\d*$/.test(s)) return toFa(String(value)); // ورودی غیرعددی → فقط تبدیل ارقام
+  const [i, f] = s.split('.');
+  const grouped = (i || '0').replace(/\B(?=(\d{3})+(?!\d))/g, '٬');
+  const out = s.includes('.') ? `${grouped}٫${f ?? ''}` : grouped;
+  return (neg ? '−' : '') + toFa(out);
 }
 
 /** گرد کردن مبلغ به تومان (عدد صحیح) */
@@ -65,7 +86,9 @@ export function fmtQty(n) {
   if (n == null || !Number.isFinite(Number(n))) return '—';
   const x = Number(n);
   const s = Number.isInteger(x) ? String(x) : String(Number(x.toFixed(3)));
-  return toFa(s);
+  const [i, f] = s.split('.');
+  const grouped = i.replace(/\B(?=(\d{3})+(?!\d))/g, '٬');
+  return toFa(f ? `${grouped}٫${f}` : grouped);
 }
 
 /** درصد */

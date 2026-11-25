@@ -9,7 +9,7 @@ import {
   icon, toast, confirmDialog, buildTable, emptyState, openModal,
   fieldSelect, fieldNum, fieldTextarea,
 } from '../ui/components.js';
-import { fmtMoney, fmtQty, fmtPercent, toFa, escapeHtml, num } from '../core/utils.js';
+import { fmtMoney, fmtQty, fmtPercent, toFa, escapeHtml, num, formatNumInput } from '../core/utils.js';
 
 export const path = 'recipes';
 export const title = 'دستور پخت';
@@ -159,7 +159,7 @@ async function openRecipe(foodId) {
     row.style.gap = '8px';
     row.innerHTML = `
       <select class="select" data-l-ing style="flex:2;min-width:170px;min-height:38px">${ingOptions(line?.ingredientId)}</select>
-      <input class="input num" data-l-qty value="${line ? line.qty : ''}" placeholder="مقدار" inputmode="decimal" style="width:96px;min-height:38px" />
+      <input class="input num" data-l-qty value="${line ? formatNumInput(line.qty) : ''}" placeholder="مقدار" inputmode="decimal" style="width:96px;min-height:38px" />
       <select class="select" data-l-unit style="width:120px;min-height:38px"></select>
       <button class="btn btn-ghost btn-sm" data-l-del type="button">${icon('trash')}</button>`;
 

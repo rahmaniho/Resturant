@@ -57,6 +57,22 @@ section('تقویم شمسی و ابزارها');
 
 const U = await import('../js/core/utils.js');
 
+await test('قالب‌بندی اعداد: ارقام فارسی و جداکننده سه‌رقمی', () => {
+  assert.equal(U.formatNumInput(1234567), '۱٬۲۳۴٬۵۶۷');
+  assert.equal(U.formatNumInput('1500'), '۱٬۵۰۰');
+  assert.equal(U.formatNumInput('12.5'), '۱۲٫۵');
+  assert.equal(U.formatNumInput(''), '');
+  // خواندن مقادیر فارسی/جداکننده‌دار
+  assert.equal(U.num('۱٬۲۳۴٬۵۶۷'), 1234567);
+  assert.equal(U.num('1,234'), 1234);
+  assert.equal(U.num('۱۲٫۵'), 12.5);
+  assert.equal(U.num(U.formatNumInput(9876543)), 9876543);
+  // نمایش
+  assert.equal(U.fmtMoney(1234567), '۱٬۲۳۴٬۵۶۷');
+  assert.equal(U.fmtQty(1500), '۱٬۵۰۰');
+  assert.equal(U.toFa('1405-09-03'), '۱۴۰۵-۰۹-۰۳');
+});
+
 await test('میلادی → شمسی (نوروز ۱۴۰۵)', () => {
   const r = U.toJalaali(2026, 3, 21);
   assert.deepEqual([r.jy, r.jm, r.jd], [1405, 1, 1]);
@@ -729,7 +745,8 @@ await test('پیش‌نویس سبد خرید ذخیره و بازیابی می�
   assert.ok(page.querySelector('.cart-line'), 'پیش‌نویس سبد بازیابی نشد');
   assert.equal(page.querySelector('#cust-name')?.value, 'مشتری آزمایشی');
   assert.ok(document.getElementById('cart-fab').classList.contains('visible'), 'نوار سبد شناور فعال نشد');
-  assert.equal(page.querySelector('#discount-input')?.value, '5000');
+  // مبالغ به‌صورت ارقام فارسی با جداکننده سه‌رقمی نمایش داده می‌شوند
+  assert.equal(page.querySelector('#discount-input')?.value, '۵٬۰۰۰');
 
   // خالی کردن سبد → حذف پیش‌نویس و مخفی شدن نوار
   page.querySelector('#btn-clear-cart').click();
@@ -949,6 +966,71 @@ await test('تب «سود هر پرس و سود خالص» در بخش هزین�
   page.querySelector('[data-tab="list"]').click();
   await new Promise((r) => setTimeout(r, 100));
   assert.ok(document.getElementById('tab-body').textContent.includes('دسته'), 'بازگشت به تب اسناد ناموفق بود');
+});
+
+await test('ورودی مبلغ به‌صورت زنده فارسی و سه‌رقمی می‌شود', async () => {
+  const inp = document.createElement('input');
+  inp.className = 'input num';
+  inp.value = '1500';
+  document.body.appendChild(inp);
+  try {
+    inp.dispatchEvent(new window.Event('input', { bubbles: true }));
+    assert.equal(inp.value, '۱٬۵۰۰', 'قالب‌بندی زنده اعمال نشد');
+    inp.value = '۱٬۵۰۰0'; // ادامه تایپ
+    inp.dispatchEvent(new window.Event('input', { bubbles: true }));
+    assert.equal(inp.value, '۱۵٬۰۰۰');
+    inp.value = 'abc';
+    inp.dispatchEvent(new window.Event('input', { bubbles: true }));
+    assert.equal(inp.value, 'abc', 'متن غیرعددی نباید خراب شود');
+  } finally { inp.remove(); }
+});
+
+await test('ورودی‌های عددی و تاریخ با ارقام فارسی ساخته می‌شوند', async () => {
+  const { fieldNum, fieldDate } = await import('../js/ui/components.js');
+  const n = fieldNum({ id: 't-n', label: 'مبلغ', value: '1234567' });
+  assert.ok(n.includes('۱٬۲۳۴٬۵۶۷'), 'مقدار اولیه فارسی با جداکننده نیست');
+  const d = fieldDate({ id: 't-d', label: 'تاریخ', value: '1405-09-03' });
+  assert.ok(d.includes('۱۴۰۵-۰۹-۰۳'), 'تاریخ اولیه فارسی نیست');
+});
+
+await test('ثبت هزینه با تاریخ و مبلغ فارسی از مودال', async () => {
+  await app.navigate('expenses');
+  const page = document.getElementById('page');
+  page.querySelector('#btn-new').click();
+  const modal = document.querySelector('.modal-backdrop');
+  assert.ok(modal, 'مودال هزینه باز نشد');
+  modal.querySelector('#x-date').value = U.toFa(U.todayJalali());
+  modal.querySelector('#x-cat').value = 'تست فارسی';
+  modal.querySelector('#x-amount').value = '۲٬۵۰۰';
+  modal.querySelector('[data-save]').click();
+  await new Promise((r) => setTimeout(r, 300));
+
+  const exp = await import('../js/services/expenseService.js');
+  const rows = await exp.listExpenses({ date: U.todayJalali(), category: 'تست فارسی' });
+  assert.equal(rows.length, 1, 'سند با تاریخ فارسی ذخیره نشد');
+  assert.equal(rows[0].amount, 2500, 'مبلغ فارسی درست خوانده نشد');
+  await exp.deleteExpense(rows[0].id);
+});
+
+await test('شماره فاکتور فارسی در رسید + همگام‌سازی لوگوی نوار کناری', async () => {
+  const receipt = await import('../js/core/receipt.js');
+  const salesMod = await import('../js/services/salesService.js');
+  const { saveSettings, syncBrandLogo } = await import('../js/core/settings.js');
+  const list = await salesMod.listSales({});
+  const el = receipt.buildReceiptElement(list[0]);
+  try {
+    assert.ok(el.textContent.includes(U.toFa(list[0].id.slice(-8))), 'شماره فاکتور در رسید فارسی نیست');
+  } finally { el.remove(); }
+
+  saveSettings({ restaurantLogo: 'data:image/jpeg;base64,abcd' });
+  try {
+    syncBrandLogo();
+    assert.ok(document.querySelector('.brand-logo').src.startsWith('data:image/jpeg'), 'لوگوی نوار کناری همگام نشد');
+  } finally {
+    saveSettings({ restaurantLogo: null });
+    syncBrandLogo();
+    assert.ok(document.querySelector('.brand-logo').src.includes('icon-192.png'), 'لوگو به پیش‌فرض برنگشت');
+  }
 });
 
 /* ============================================================ */

@@ -2,7 +2,7 @@
    اجزای مشترک UI — توست، مودال، تأیید، جدول‌ها، آیکون‌ها
    ============================================================ */
 
-import { escapeHtml, toFa, debounce, normalize, toEn } from '../core/utils.js';
+import { escapeHtml, toFa, debounce, normalize, toEn, formatNumInput } from '../core/utils.js';
 
 /* ---------- آیکون‌ها (SVG) ---------- */
 export const ICONS = {
@@ -272,7 +272,7 @@ export function fieldNum({ id, label, value = '', placeholder = '', hint = '', m
   return `
     <div class="field">
       <label for="${id}">${escapeHtml(label)}</label>
-      <input class="input num" id="${id}" type="text" inputmode="decimal" value="${escapeHtml(value)}" placeholder="${escapeHtml(placeholder)}" data-num ${min !== '' ? `data-min="${min}"` : ''} />
+      <input class="input num" id="${id}" type="text" inputmode="decimal" value="${escapeHtml(formatNumInput(value))}" placeholder="${escapeHtml(formatNumInput(placeholder))}" data-num ${min !== '' ? `data-min="${min}"` : ''} />
       ${hint ? `<span class="hint">${escapeHtml(hint)}</span>` : ''}
     </div>`;
 }
@@ -303,11 +303,11 @@ export function fieldTextarea({ id, label, value = '', placeholder = '', rows = 
 }
 
 export function fieldDate({ id, label, value = '', hint = '' }) {
-  // ورودی تاریخ شمسی به‌صورت متن با الگوی YYYY-MM-DD
+  // ورودی تاریخ شمسی به‌صورت متن (ارقام فارسی نمایش داده می‌شود؛ خواندن با toEn)
   return `
     <div class="field">
       <label for="${id}">${escapeHtml(label)}</label>
-      <input class="input" id="${id}" type="text" inputmode="numeric" dir="ltr" placeholder="1405-08-03" value="${escapeHtml(value)}" data-date />
+      <input class="input" id="${id}" type="text" inputmode="numeric" dir="ltr" placeholder="1405-08-03" value="${escapeHtml(value ? toFa(value) : '')}" data-date />
       ${hint ? `<span class="hint">${escapeHtml(hint)}</span>` : ''}
     </div>`;
 }

@@ -26,9 +26,9 @@ export async function render(root) {
       <div class="section-head">
         <h2>فاکتورها</h2>
         <div class="spacer"></div>
-        <input class="input" id="iv-from" dir="ltr" style="width:130px;min-height:38px" value="${range.from}" placeholder="1405-01-01" />
+        <input class="input" id="iv-from" dir="ltr" style="width:130px;min-height:38px" value="${toFa(range.from)}" placeholder="1405-01-01" />
         <span class="text-muted">تا</span>
-        <input class="input" id="iv-to" dir="ltr" style="width:130px;min-height:38px" value="${range.to}" placeholder="1405-12-29" />
+        <input class="input" id="iv-to" dir="ltr" style="width:130px;min-height:38px" value="${toFa(range.to)}" placeholder="1405-12-29" />
         <button class="btn btn-primary btn-sm" id="iv-apply" type="button">نمایش</button>
         <button class="btn btn-outline btn-sm" id="iv-all" type="button">همه</button>
       </div>
@@ -98,7 +98,7 @@ function renderTable() {
 
   const table = buildTable({
     columns: [
-      { key: 'number', label: 'شماره فاکتور', cls: 'num', render: (r) => `<span dir="ltr">${escapeHtml(r.id.slice(-8))}</span>` },
+      { key: 'number', label: 'شماره فاکتور', cls: 'num', render: (r) => `<span>${toFa(r.id.slice(-8))}</span>` },
       { key: 'date', label: 'تاریخ', cls: 'num', render: (r) => fmtDate(r.date) },
       { key: 'customer', label: 'مشتری', render: (r) => escapeHtml(r.customer?.name || '—') },
       { key: 'itemsCount', label: 'اقلام', cls: 'num', render: (r) => toFa((r.items || []).length) },

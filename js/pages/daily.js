@@ -19,7 +19,7 @@ export async function render(root) {
       <div class="section-head">
         <h2>گزارش روزانه</h2>
         <div class="spacer"></div>
-        <input class="input" id="d-date" dir="ltr" style="width:140px;min-height:38px" value="${date}" placeholder="1405-08-03" />
+        <input class="input" id="d-date" dir="ltr" style="width:140px;min-height:38px" value="${toFa(date)}" placeholder="1405-08-03" />
         <button class="btn btn-primary btn-sm" id="d-apply" type="button">نمایش</button>
         <button class="btn btn-outline btn-sm" id="d-today" type="button">امروز</button>
         <button class="btn btn-outline btn-sm" id="d-excel" type="button">${icon('excel')} اکسل</button>
@@ -36,7 +36,7 @@ export async function render(root) {
   });
   root.querySelector('#d-today').addEventListener('click', () => {
     date = todayJalali();
-    root.querySelector('#d-date').value = date;
+    root.querySelector('#d-date').value = toFa(date);
     load();
   });
   root.querySelector('#d-excel').addEventListener('click', exportExcel);

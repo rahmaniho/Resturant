@@ -146,7 +146,7 @@ function entryModal() {
         amount: content.querySelector('#e-amount').value,
         category: content.querySelector('#e-cat').value || 'دستی',
         description: content.querySelector('#e-desc').value,
-        date: content.querySelector('#e-date').value.trim() || todayJalali(),
+        date: toEn(content.querySelector('#e-date').value).trim() || todayJalali(),
       });
       modal.close();
       toast('تراکنش ثبت شد');

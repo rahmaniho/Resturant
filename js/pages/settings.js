@@ -2,7 +2,7 @@
    صفحه تنظیمات — هویت برند، ظاهر، صندوق، سیستم
    ============================================================ */
 
-import { getSettings, saveSettings, resetSettings, applyTheme } from '../core/settings.js';
+import { getSettings, saveSettings, resetSettings, applyTheme, syncBrandLogo } from '../core/settings.js';
 import { ensureInitialCash, cashBalance } from '../services/cashService.js';
 import { getHistory } from '../core/db.js';
 import {
@@ -134,6 +134,7 @@ export async function render(root) {
     applyTheme(theme);
     document.querySelector('.brand-title').textContent = getSettings().restaurantName;
     document.title = `${getSettings().restaurantName} — نرم‌افزار مدیریت`;
+    syncBrandLogo();
     toast('تنظیمات ذخیره شد');
   });
 
@@ -145,6 +146,7 @@ export async function render(root) {
     try {
       const dataUrl = await resizeImage(file, 300);
       saveSettings({ restaurantLogo: dataUrl });
+      syncBrandLogo();
       toast('لوگو ذخیره شد و روی فاکتورها اعمال می‌شود');
       await render(document.getElementById('page'));
     } catch {
@@ -154,6 +156,7 @@ export async function render(root) {
   root.querySelector('#logo-clear')?.addEventListener('click', async () => {
     if (!getSettings().restaurantLogo) { toast('لوگویی ثبت نشده', 'info'); return; }
     saveSettings({ restaurantLogo: null });
+    syncBrandLogo();
     toast('لوگو حذف شد');
     await render(document.getElementById('page'));
   });

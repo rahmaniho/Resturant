@@ -13,7 +13,7 @@ import {
   icon, toast, confirmDialog, buildTable, emptyState, openModal,
   fieldText, fieldNum, fieldTextarea, fieldSelect, fieldDate,
 } from '../ui/components.js';
-import { fmtMoney, fmtPercent, toFa, escapeHtml, num, todayJalali, monthKey, currentJalaliMonth } from '../core/utils.js';
+import { fmtMoney, fmtPercent, toFa, toEn, escapeHtml, num, todayJalali, monthKey, currentJalaliMonth } from '../core/utils.js';
 
 export const path = 'expenses';
 export const title = 'هزینه‌ها';
@@ -250,7 +250,7 @@ function expenseModal(exp = null) {
   modal.foot.querySelector('[data-save]').addEventListener('click', async () => {
     try {
       const payload = {
-        date: content.querySelector('#x-date').value.trim() || todayJalali(),
+        date: toEn(content.querySelector('#x-date').value).trim() || todayJalali(),
         category: content.querySelector('#x-cat').value,
         amount: content.querySelector('#x-amount').value,
         source: content.querySelector('#x-source').value,

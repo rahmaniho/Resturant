@@ -149,7 +149,7 @@ function detailModal(c) {
           ${c.sales.map((s) => `
             <tr>
               <td>${fmtDate(s.date)}</td>
-              <td dir="ltr">${escapeHtml(s.id.slice(-8))}</td>
+              <td>${toFa(s.id.slice(-8))}</td>
               <td class="num">${fmtMoney(s.total)}</td>
               <td class="num">${num(s.creditRemaining, 0) > 0 ? `<b class="text-danger">${fmtMoney(s.creditRemaining)}</b>` : '—'}</td>
             </tr>`).join('')}
