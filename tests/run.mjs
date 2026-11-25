@@ -196,7 +196,7 @@ await test('تصاویر منو: نقشه کامل ۷۰ قلمی، فایل‌ه
   const fs = await import('node:fs');
   const path = await import('node:path');
   const entries = Object.entries(menu.MENU_IMAGES);
-  assert.ok(entries.length >= 70, `نقشه تصاویر باید حداقل ۷۰ قلم باشد (${entries.length})`);
+  assert.ok(entries.length >= 95, `نقشه تصاویر باید حداقل ۹۵ قلم باشد (${entries.length})`);
   // همه فایل‌های نقشه روی دیسک وجود دارند
   for (const [name, file] of entries) {
     const p = path.join(process.cwd(), 'img', 'menu', file);
@@ -204,7 +204,7 @@ await test('تصاویر منو: نقشه کامل ۷۰ قلمی، فایل‌ه
   }
   // همه غذاهای منوی پیشنهادی در نقشه‌اند (پوشش کامل)
   const seedNames = new Set(menu.SUGGESTED_MENU.flatMap((g) => g.foods));
-  assert.ok(seedNames.size >= 70, `منوی پیشنهادی باید ≥۷۰ قلم باشد (${seedNames.size})`);
+  assert.ok(seedNames.size >= 95, `منوی پیشنهادی باید ≥۹۵ قلم باشد (${seedNames.size})`);
   for (const n of seedNames) assert.ok(menu.MENU_IMAGES[n], `غذای پیشنهادی بدون تصویر: ${n}`);
   // غذاهای seed ساخته‌شده تصویر دارند
   const foods = await menu.listFoods();
@@ -244,6 +244,19 @@ await test('ویرایش و حذف غذا', async () => {
   await menu.deleteFood(target.id);
   const after = await menu.listFoods();
   assert.ok(!after.some((f) => f.id === target.id));
+});
+
+await test('گسترش منو: ۲۶ دسته و ≥۹۵ قلم با پوشش تصویر کامل', async () => {
+  assert.ok(menu.SUGGESTED_MENU.length >= 26, `تعداد دسته‌ها (${menu.SUGGESTED_MENU.length})`);
+  const names = menu.SUGGESTED_MENU.flatMap((g) => g.foods);
+  const uniq = new Set(names);
+  assert.ok(uniq.size >= 95, `تعداد اقلام یکتا (${uniq.size})`);
+  for (const n of uniq) assert.ok(menu.MENU_IMAGES[n], `قلم بدون تصویر: ${n}`);
+  // دسته‌های جدید کلیدی وجود دارند
+  const cats = menu.SUGGESTED_MENU.map((g) => g.name);
+  for (const c of ['کباب', 'پلو', 'سوپ', 'نوشیدنی گرم', 'نوشیدنی سرد', 'دسر']) {
+    assert.ok(cats.includes(c), `دسته ${c} اضافه نشده`);
+  }
 });
 
 /* ============================================================ */
