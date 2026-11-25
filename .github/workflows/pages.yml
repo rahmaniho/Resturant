@@ -1,0 +1,44 @@
+# انتشار استاتیک روی GitHub Pages — بدون هیچ سرور یا بک‌اند
+# فایل‌ها مستقیم از همین مخزن (HTML/CSS/JS) منتشر می‌شوند.
+#
+# نکات:
+# - `actions: read` لازم است تا deploy-pages بتواند artifact همین run را ببیند.
+# - تاخیر کوتاه پیش از Deploy، به ایندکس‌شدن artifact پس از آپلود فرصت می‌دهد
+#   (دیده‌شدن فوری توسط سرویس artifact قابل اتکا نیست).
+# - عمداً `environment: github-pages` اعلام نشده: سیاست شاخه این environment
+#   فقط main را مجاز می‌کند و توکن فعلی اجازه تغییر آن را ندارد؛ استقرار از
+#   طریق API صفحات (deploy-pages) بدون اعلام environment انجام می‌شود.
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [arena/0c347b5d-resturant]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+      - name: Wait for artifact index
+        run: sleep 20
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

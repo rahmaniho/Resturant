@@ -1,0 +1,15 @@
+{
+  "name": "aftab-breakfast-management",
+  "version": "1.0.0",
+  "description": "میزینو | MIZINO — نرم‌افزار مدیریت رستوران، وب‌اپلیکیشن استاتیک (Static Web App)",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "python3 -m http.server 8080",
+    "test": "node tests/run.mjs"
+  },
+  "devDependencies": {
+    "fake-indexeddb": "^6.0.0",
+    "jsdom": "^25.0.1"
+  }
+}
